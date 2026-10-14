@@ -19,7 +19,7 @@ import { createPortMonitorService, type PortMonitorService } from "../port-monit
 import { createIncidentService, type IncidentService } from "../incidents/service";
 import { createEmailChannel, createLineChannel } from "../notifications/channels";
 import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
-import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
+import { PrismaExternalIdentityStore, PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
 
 export interface Services {
   config: PortalConfig;
@@ -57,6 +57,7 @@ export function getServices(): Services {
     auth: createAuthService({
       users: new PrismaUserStore(prisma),
       sessions: new PrismaSessionStore(prisma),
+      externalIdentities: new PrismaExternalIdentityStore(prisma),
       audit,
       totpKey: config.totpEncryptionKey,
     }),

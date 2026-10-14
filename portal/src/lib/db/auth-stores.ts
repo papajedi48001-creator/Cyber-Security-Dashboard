@@ -1,5 +1,14 @@
 import type { Prisma, PrismaClient, User } from "@prisma/client";
-import type { NewUser, SessionRecord, SessionStore, UserPatch, UserRecord, UserStore } from "../auth/service";
+import type {
+  ExternalIdentityRecord,
+  ExternalIdentityStore,
+  NewUser,
+  SessionRecord,
+  SessionStore,
+  UserPatch,
+  UserRecord,
+  UserStore,
+} from "../auth/service";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -47,12 +56,20 @@ export class PrismaSessionStore implements SessionStore {
   constructor(private readonly db: Db) {}
 
   async create(session: SessionRecord) {
-    await this.db.session.create({ data: { ...session, mfaPassed: true } });
+    await this.db.session.create({ data: session });
   }
   async find(id: string) {
     const s = await this.db.session.findUnique({ where: { id } });
     return s
-      ? { id: s.id, userId: s.userId, csrfSecret: s.csrfSecret, createdAt: s.createdAt, lastSeenAt: s.lastSeenAt, expiresAt: s.expiresAt }
+      ? {
+          id: s.id,
+          userId: s.userId,
+          csrfSecret: s.csrfSecret,
+          createdAt: s.createdAt,
+          lastSeenAt: s.lastSeenAt,
+          expiresAt: s.expiresAt,
+          mfaPassed: s.mfaPassed,
+        }
       : null;
   }
   async touch(id: string, lastSeenAt: Date) {
@@ -63,5 +80,35 @@ export class PrismaSessionStore implements SessionStore {
   }
   async deleteForUser(userId: string) {
     await this.db.session.deleteMany({ where: { userId } });
+  }
+}
+
+const toLink = (l: ExternalIdentityRecord) => ({
+  userId: l.userId,
+  issuer: l.issuer,
+  subject: l.subject,
+  linkedAt: l.linkedAt,
+  linkedById: l.linkedById,
+});
+
+export class PrismaExternalIdentityStore implements ExternalIdentityStore {
+  constructor(private readonly db: Db) {}
+
+  async findBySubject(issuer: string, subject: string) {
+    const l = await this.db.externalIdentity.findUnique({ where: { issuer_subject: { issuer, subject } } });
+    return l ? toLink(l) : null;
+  }
+  async findForUser(userId: string, issuer: string) {
+    const l = await this.db.externalIdentity.findUnique({ where: { userId_issuer: { userId, issuer } } });
+    return l ? toLink(l) : null;
+  }
+  async list(issuer: string) {
+    return (await this.db.externalIdentity.findMany({ where: { issuer } })).map(toLink);
+  }
+  async link(record: ExternalIdentityRecord) {
+    await this.db.externalIdentity.create({ data: record });
+  }
+  async unlink(userId: string, issuer: string) {
+    return (await this.db.externalIdentity.deleteMany({ where: { userId, issuer } })).count > 0;
   }
 }
