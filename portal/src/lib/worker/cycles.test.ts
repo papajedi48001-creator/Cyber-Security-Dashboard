@@ -10,7 +10,11 @@ function deps(overrides: Partial<WorkerDeps> = {}) {
     incidents: {
       raisePending: async () => [{ number: "INC-2026-0001" }] as never,
       raiseSourceHealth: async (sources) => sources.map((s) => ({ number: `INC-${s.name}` })) as never,
+      raiseFindings: async (_label, findings) => findings.map((f) => ({ number: `INC-${f.sourceName}` })) as never,
     },
+    portFindings: async () => [
+      { category: "external_exposure", sourceName: "203.0.113.10:3389/TCP", severity: "P2", title: "RDP", detectedAt: new Date() },
+    ],
     notifier: { dispatchDue: async () => ({ sent: 2, failed: 0 }) },
     silentSources: async () => [{ name: "sophos-firewall", critical: true, reason: "silent", since: new Date() }],
     log: (event, detail) => logs.push({ event, detail }),
@@ -37,6 +41,12 @@ describe("worker cycles", () => {
     const { cycles, logs } = deps();
     await cycles.sourceHealth();
     expect(logs[0]).toMatchObject({ event: "source_health", detail: { incidentsRaised: ["INC-sophos-firewall"] } });
+  });
+
+  it("opens incidents for port findings", async () => {
+    const { cycles, logs } = deps();
+    await cycles.ports();
+    expect(logs[0]).toMatchObject({ event: "ports", detail: { findings: 1, incidentsRaised: ["INC-203.0.113.10:3389/TCP"] } });
   });
 
   it("logs a failing cycle without throwing or leaking secrets", async () => {

@@ -12,7 +12,8 @@ export type WorkerLog = (event: string, detail: Record<string, unknown>) => void
 
 export interface WorkerDeps {
   poll: () => Promise<PollResult>;
-  incidents: Pick<IncidentService, "raisePending" | "raiseSourceHealth">;
+  incidents: Pick<IncidentService, "raisePending" | "raiseSourceHealth" | "raiseFindings">;
+  portFindings: () => Promise<Parameters<IncidentService["raiseFindings"]>[1]>;
   notifier: Pick<Notifier, "dispatchDue">;
   silentSources: () => Promise<SilentSource[]>;
   log: WorkerLog;
@@ -50,6 +51,12 @@ export function createWorkerCycles(deps: WorkerDeps) {
       const silent = await deps.silentSources();
       const raised = await deps.incidents.raiseSourceHealth(silent, correlationId);
       return { silent: silent.map((s) => s.name), incidentsRaised: raised.map((i) => i.number) };
+    }),
+
+    ports: guarded("ports", async (correlationId) => {
+      const findings = await deps.portFindings();
+      const raised = await deps.incidents.raiseFindings("system:port-monitor", findings, correlationId);
+      return { findings: findings.length, incidentsRaised: raised.map((i) => i.number) };
     }),
 
     notifications: guarded("notifications", async (correlationId) => deps.notifier.dispatchDue(correlationId)),

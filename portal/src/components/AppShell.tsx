@@ -8,7 +8,7 @@ const NAV: { href: string; label: string; permission: Permission }[] = [
   { href: "/sources", label: "แหล่ง Log", permission: "source.read" },
   { href: "/assets", label: "Asset", permission: "asset.read" },
   { href: "/backups", label: "Backup", permission: "evidence.read" },
-  { href: "/port-monitor", label: "พอร์ต", permission: "incident.read" },
+  { href: "/port-monitor", label: "พอร์ต", permission: "evidence.read" },
   { href: "/web-application-firewall", label: "WAF", permission: "incident.read" },
   { href: "/duo", label: "Duo", permission: "incident.read" },
   { href: "/executive", label: "รายงานผู้บริหาร", permission: "executive.read" },

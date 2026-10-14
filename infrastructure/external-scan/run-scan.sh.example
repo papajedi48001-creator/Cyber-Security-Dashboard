@@ -1,0 +1,10 @@
+#!/bin/sh
+# Daily External Exposure Scan, run from the approved scanner host outside the
+# hospital network (cron: 30 1 * * *). Scans only the approved targets.
+set -eu
+cd /opt/external-scan
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+nmap -Pn -sT -p- --open -T3 --max-retries 2 -iL targets.txt -oX "reports/scan-$stamp.xml" >/dev/null
+python3 nmap_to_summary.py --targets targets.txt "reports/scan-$stamp.xml" > "summaries/scan-$stamp.json"
+# Keep 30 days of raw reports on the scanner; only summaries go to the Portal.
+find reports -name 'scan-*.xml' -mtime +30 -delete

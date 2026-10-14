@@ -52,6 +52,12 @@
 
 <decoder name="sophos-sfos-fields">
   <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bprotocol="([A-Za-z]+)"</regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
   <regex type="pcre2">\buser_name="([^"]*)"</regex>
   <order>srcuser</order>
 </decoder>

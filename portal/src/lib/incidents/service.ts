@@ -159,11 +159,14 @@ export function createIncidentService({
   audit,
   clock = () => new Date(),
   notify = async () => {},
+  suppressAlert = async () => false,
 }: {
   store: IncidentStore;
   audit: AuditLog;
   clock?: () => Date;
   notify?: IncidentNotify;
+  /** True when an active policy exception covers the alert (e.g. an approved egress port); it stays a Security Event. */
+  suppressAlert?: (alert: NormalizedAlert) => Promise<boolean>;
 }) {
   const record = (
     actor: { id: string | null; label: string },
@@ -428,6 +431,7 @@ export function createIncidentService({
         if (!REVIEW_REQUIRED.has(level)) continue;
         const known = await store.findAlert(alert.wazuhAlertId);
         if (known?.incidentId) continue;
+        if (await suppressAlert(alert)) continue;
         const group = [...linked.values()].find(
           (g) => g.incident.category === alert.category && g.incident.sourceName === alert.sourceName,
         );
@@ -465,32 +469,47 @@ export function createIncidentService({
     },
 
     /**
-     * Opens one incident per silent log source (category log_source_health) so a
-     * gap in visibility is handled like any other incident: P2 when the source
-     * covers a Critical Asset, P3 otherwise. An active incident is not duplicated.
+     * Opens one incident per system finding (silent source, exposed port, ...)
+     * unless an active incident already covers the same category and source.
      */
-    async raiseSourceHealth(
-      sources: { name: string; critical: boolean; reason: string; since: Date }[],
+    async raiseFindings(
+      actorLabel: string,
+      findings: { category: string; sourceName: string; severity: Severity; title: string; detectedAt: Date }[],
       correlationId: string,
     ): Promise<Incident[]> {
       const raised: Incident[] = [];
-      for (const source of sources) {
-        if (await store.findActiveGroup("log_source_health", source.name)) continue;
+      for (const finding of findings) {
+        if (await store.findActiveGroup(finding.category, finding.sourceName)) continue;
         raised.push(
           await open(
-            { id: null, label: "system:source-health" },
-            {
-              title: `แหล่ง Log ${source.name} ขาดหาย: ${source.reason}`.slice(0, 255),
-              severity: source.critical ? "P2" : "P3",
-              detectedAt: source.since,
-              category: "log_source_health",
-              sourceName: source.name,
-            },
+            { id: null, label: actorLabel },
+            { ...finding, title: finding.title.slice(0, 255) },
             correlationId,
           ),
         );
       }
       return raised;
+    },
+
+    /**
+     * Silent log sources (category log_source_health): P2 when the source covers
+     * a Critical Asset, P3 otherwise.
+     */
+    async raiseSourceHealth(
+      sources: { name: string; critical: boolean; reason: string; since: Date }[],
+      correlationId: string,
+    ): Promise<Incident[]> {
+      return service.raiseFindings(
+        "system:source-health",
+        sources.map((source) => ({
+          category: "log_source_health",
+          sourceName: source.name,
+          severity: source.critical ? "P2" : "P3",
+          title: `แหล่ง Log ${source.name} ขาดหาย: ${source.reason}`,
+          detectedAt: source.since,
+        })),
+        correlationId,
+      );
     },
 
     /**

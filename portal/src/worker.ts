@@ -1,5 +1,6 @@
 // Portal background worker: run beside the web process (`npm run worker`).
-// Polls Wazuh, opens incidents, watches source health and sends notifications.
+// Polls Wazuh, opens incidents, watches source health and port exposure, and
+// sends notifications.
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "./lib/db/client";
@@ -12,11 +13,12 @@ import { createWorkerCycles } from "./lib/worker/cycles";
 
 const NOTIFY_INTERVAL_MS = 30_000;
 const SOURCE_HEALTH_INTERVAL_MS = 60_000;
+const PORT_INTERVAL_MS = 5 * 60_000;
 
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier } = getServices();
+const { config, audit, incidents, notifier, ports } = getServices();
 const source = createIndexerClient({
   baseUrl: config.wazuh.indexerUrl,
   username: config.wazuh.username,
@@ -30,6 +32,7 @@ const cycles = createWorkerCycles({
   incidents,
   notifier,
   silentSources: () => silentSources(prisma, config.wazuh.pollIntervalSeconds),
+  portFindings: ports.findingsForIncidents,
   log,
   newCorrelationId: randomUUID,
 });
@@ -50,6 +53,7 @@ if (notifier.channelsConfigured.length === 0) log("notifications.unconfigured", 
 log("worker.started", { pollIntervalSeconds: config.wazuh.pollIntervalSeconds, channels: notifier.channelsConfigured });
 every("intake", config.wazuh.pollIntervalSeconds * 1000, cycles.intake);
 every("source_health", SOURCE_HEALTH_INTERVAL_MS, cycles.sourceHealth);
+every("ports", PORT_INTERVAL_MS, cycles.ports);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

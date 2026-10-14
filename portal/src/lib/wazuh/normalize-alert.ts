@@ -8,6 +8,7 @@ export const PRIORITY_CATEGORIES = [
   "vpn_anomaly",
   "ips_av_web_event",
   "log_source_health",
+  "restricted_egress",
 ] as const;
 export type Category = (typeof PRIORITY_CATEGORIES)[number];
 export type Severity = "P1" | "P2" | "P3" | "P4";
@@ -19,6 +20,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   vpn_anomaly: "VPN ผิดปกติ",
   ips_av_web_event: "IPS / Antivirus / Web protection",
   log_source_health: "แหล่ง Log ผิดปกติ",
+  restricted_egress: "เชื่อมต่อออกไปยังพอร์ตที่ห้าม",
 };
 
 const HEARTBEAT_GROUP = "log_relay_heartbeat";

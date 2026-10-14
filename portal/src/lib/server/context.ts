@@ -10,6 +10,8 @@ import { PrismaBackupStore } from "../db/backup-store";
 import { createBackupService, type BackupService } from "../backups/service";
 import { PrismaDeliveryStore } from "../db/delivery-store";
 import { PrismaIncidentStore } from "../db/incident-store";
+import { PrismaPortStore } from "../db/port-store";
+import { createPortMonitorService, type PortMonitorService } from "../port-monitor/service";
 import { createIncidentService, type IncidentService } from "../incidents/service";
 import { createEmailChannel, createLineChannel } from "../notifications/channels";
 import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
@@ -23,6 +25,7 @@ export interface Services {
   incidents: IncidentService;
   notifier: Notifier;
   backups: BackupService;
+  ports: PortMonitorService;
 }
 
 let services: Services | undefined;
@@ -41,6 +44,7 @@ export function getServices(): Services {
     audit,
     portalBaseUrl: config.portalBaseUrl,
   });
+  const ports = createPortMonitorService({ store: new PrismaPortStore(prisma), audit });
   services = {
     config,
     audit,
@@ -51,9 +55,15 @@ export function getServices(): Services {
       totpKey: config.totpEncryptionKey,
     }),
     assets: createAssetService({ store: new PrismaAssetStore(prisma), audit }),
-    incidents: createIncidentService({ store: new PrismaIncidentStore(prisma), audit, notify: notifier.enqueue }),
+    incidents: createIncidentService({
+      store: new PrismaIncidentStore(prisma),
+      audit,
+      notify: notifier.enqueue,
+      suppressAlert: ports.isEgressExcepted,
+    }),
     notifier,
     backups: createBackupService({ store: new PrismaBackupStore(prisma), audit }),
+    ports,
   };
   return services;
 }

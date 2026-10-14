@@ -25,6 +25,7 @@ CATEGORIES = {
     "vpn_anomaly",
     "ips_av_web_event",
     "log_source_health",
+    "restricted_egress",
 }
 CUSTOM_RULE_RANGE = range(100100, 100200)
 

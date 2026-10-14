@@ -28,6 +28,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
   serverExternalPackages: ["@node-rs/argon2"],
+  // Exposure scan summaries are uploaded through a server action.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

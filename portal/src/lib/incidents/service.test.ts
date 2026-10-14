@@ -196,6 +196,17 @@ describe("raising incidents from Wazuh alerts", () => {
     expect(await service.raisePending("c")).toHaveLength(0);
   });
 
+  it("leaves alerts covered by an active policy exception as Security Events", async () => {
+    const excepting = createIncidentService({
+      store,
+      audit: createAuditLog(auditStore, () => now),
+      clock: () => now,
+      suppressAlert: async (a) => a.category === "restricted_egress",
+    });
+    const raised = await excepting.raiseFromAlerts([alert("e1", 10, "restricted_egress"), alert("e2", 10, "ips_av_web_event")], "c");
+    expect(raised.map((i) => i.category)).toEqual(["ips_av_web_event"]);
+  });
+
   it("lets an operator promote a Security Event to an incident", async () => {
     store.alertRefs.set("ev1", { ...alert("ev1", 8, "vpn_anomaly"), incidentId: null });
     const incident = await service.promoteAlert(opA, "ev1", "P3", "c");

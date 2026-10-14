@@ -274,6 +274,52 @@ model RestoreVerification {
   @@index([jobId, testedAt])
 }
 
+enum PortFamily {
+  EXTERNAL_EXPOSURE
+  RESTRICTED_EGRESS
+}
+
+// External Exposure Scan summary (ADR 0007): public addresses and open ports only.
+model PortScan {
+  id           String   @id @default(cuid())
+  scanner      String   @db.VarChar(64)
+  startedAt    DateTime
+  finishedAt   DateTime
+  targets      Json
+  findings     Json
+  importedAt   DateTime @default(now())
+  importedById String   @db.VarChar(64)
+
+  @@index([finishedAt])
+}
+
+// Sophos WAN/NAT rules that publish a service, as exported by the IT team.
+model FirewallExposureSnapshot {
+  id           String   @id @default(cuid())
+  rules        Json
+  importedAt   DateTime @default(now())
+  importedById String   @db.VarChar(64)
+
+  @@index([importedAt])
+}
+
+// Every exception expires; revocation keeps the row for audit.
+model PortException {
+  id           String     @id @default(cuid())
+  family       PortFamily
+  address      String?    @db.VarChar(45)
+  port         Int
+  protocol     String     @db.VarChar(3)
+  reason       String     @db.VarChar(500)
+  owner        String     @db.VarChar(128)
+  approvedById String     @db.VarChar(64)
+  approvedAt   DateTime
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  @@index([family, port])
+}
+
 // Append-only: a database trigger (see migration) rejects UPDATE and DELETE.
 model AuditRecord {
   id            String   @id @default(cuid())

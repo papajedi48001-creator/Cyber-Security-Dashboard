@@ -55,12 +55,61 @@
       "name": "successful admin login",
       "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:10:00+0700\" log_id=062910617701 log_type=\"Event\" log_component=\"GUI\" log_subtype=\"Admin\" status=\"Successful\" user_name=\"testadmin\" src_ip=\"192.0.2.40\" message=\"User testadmin logged in to Webadmin\"",
       "expect": null
+    },
+    {
+      "name": "allowed outbound RDP to the internet",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:10:00+0700\" log_id=010101600002 log_type=\"Firewall\" log_component=\"Firewall Rule\" log_subtype=\"Allowed\" status=\"Allow\" fw_rule_id=\"5\" src_ip=\"192.0.2.30\" dst_ip=\"203.0.113.80\" dst_port=\"3389\" protocol=\"TCP\"",
+      "expect": "restricted_egress"
+    },
+    {
+      "name": "allowed outbound HTTPS is not an egress violation",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:11:00+0700\" log_id=010101600003 log_type=\"Firewall\" log_component=\"Firewall Rule\" log_subtype=\"Allowed\" status=\"Allow\" fw_rule_id=\"5\" src_ip=\"192.0.2.30\" dst_ip=\"203.0.113.80\" dst_port=\"443\" protocol=\"TCP\"",
+      "expect": null
+    },
+    {
+      "name": "allowed internal SMB is not an egress violation",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:12:00+0700\" log_id=010101600004 log_type=\"Firewall\" log_component=\"Firewall Rule\" log_subtype=\"Allowed\" status=\"Allow\" fw_rule_id=\"7\" src_ip=\"10.0.1.30\" dst_ip=\"10.0.2.15\" dst_port=\"445\" protocol=\"TCP\"",
+      "expect": null
     }
   ],
   "relay_health": [
-    {"name": "relay healthy", "log": {"component": "log_relay", "status": "healthy", "queued": 0, "dropped": 0}, "expect": null},
-    {"name": "relay buffering", "log": {"component": "log_relay", "status": "degraded", "queued": 5000, "dropped": 0}, "expect": "log_source_health"},
-    {"name": "relay dropping", "log": {"component": "log_relay", "status": "failed", "queued": 0, "dropped": 3}, "expect": "log_source_health"},
-    {"name": "relay missing destination", "log": {"component": "log_relay", "status": "unknown"}, "expect": "log_source_health"}
+    {
+      "name": "relay healthy",
+      "log": {
+        "component": "log_relay",
+        "status": "healthy",
+        "queued": 0,
+        "dropped": 0
+      },
+      "expect": null
+    },
+    {
+      "name": "relay buffering",
+      "log": {
+        "component": "log_relay",
+        "status": "degraded",
+        "queued": 5000,
+        "dropped": 0
+      },
+      "expect": "log_source_health"
+    },
+    {
+      "name": "relay dropping",
+      "log": {
+        "component": "log_relay",
+        "status": "failed",
+        "queued": 0,
+        "dropped": 3
+      },
+      "expect": "log_source_health"
+    },
+    {
+      "name": "relay missing destination",
+      "log": {
+        "component": "log_relay",
+        "status": "unknown"
+      },
+      "expect": "log_source_health"
+    }
   ]
 }

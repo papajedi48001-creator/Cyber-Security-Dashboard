@@ -23,6 +23,7 @@ CATEGORIES = {
     "vpn_anomaly",
     "ips_av_web_event",
     "log_source_health",
+    "restricted_egress",
 }
 SYSLOG_HEADER = "Oct 14 10:00:00 sophos-fw "
 

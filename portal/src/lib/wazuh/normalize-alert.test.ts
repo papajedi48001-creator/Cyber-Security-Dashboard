@@ -23,6 +23,7 @@ const categories: [string, string][] = [
   ["100130", "firewall_rule_change"],
   ["100140", "vpn_anomaly"],
   ["100150", "ips_av_web_event"],
+  ["100160", "restricted_egress"],
   ["100181", "log_source_health"],
 ];
 
