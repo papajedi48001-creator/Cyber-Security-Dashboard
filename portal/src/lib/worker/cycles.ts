@@ -14,6 +14,7 @@ export interface WorkerDeps {
   poll: () => Promise<PollResult>;
   incidents: Pick<IncidentService, "raisePending" | "raiseSourceHealth" | "raiseFindings">;
   portFindings: () => Promise<Parameters<IncidentService["raiseFindings"]>[1]>;
+  refreshWaf: (correlationId: string) => Promise<Record<string, unknown>>;
   notifier: Pick<Notifier, "dispatchDue">;
   silentSources: () => Promise<SilentSource[]>;
   log: WorkerLog;
@@ -58,6 +59,8 @@ export function createWorkerCycles(deps: WorkerDeps) {
       const raised = await deps.incidents.raiseFindings("system:port-monitor", findings, correlationId);
       return { findings: findings.length, incidentsRaised: raised.map((i) => i.number) };
     }),
+
+    waf: guarded("cloudflare_waf", (correlationId) => deps.refreshWaf(correlationId)),
 
     notifications: guarded("notifications", async (correlationId) => deps.notifier.dispatchDue(correlationId)),
   };

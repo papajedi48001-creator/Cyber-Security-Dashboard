@@ -320,6 +320,35 @@ model PortException {
   @@index([family, port])
 }
 
+// Cloudflare Free WAF sampled-event summary for a time window; never raw requests
+// or client addresses.
+model CloudflareWafSnapshot {
+  id        String   @id @default(cuid())
+  fetchedAt DateTime
+  since     DateTime
+  until     DateTime
+  summary   Json
+
+  @@index([fetchedAt])
+}
+
+model DuoManualCheck {
+  id                    String   @id @default(cuid())
+  checkedAt             DateTime
+  checkedById           String   @db.VarChar(64)
+  checkedByName         String   @db.VarChar(64)
+  authLogReviewed       Boolean
+  adminActionsReviewed  Boolean
+  deniedAuthentications Int
+  fraudReports          Int
+  bypassUsers           Int
+  issuesFound           Boolean
+  note                  String?  @db.VarChar(1000)
+  recordedAt            DateTime @default(now())
+
+  @@index([checkedAt])
+}
+
 // Append-only: a database trigger (see migration) rejects UPDATE and DELETE.
 model AuditRecord {
   id            String   @id @default(cuid())

@@ -20,6 +20,7 @@ export interface PortalConfig {
     email?: EmailSettings;
     line?: { accessToken: string; to: string };
   };
+  cloudflare?: { apiToken: string; zoneId: string };
 }
 
 /** Thrown at startup. Names the variables at fault and never includes their values. */
@@ -117,6 +118,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const lineToken = env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
   if (lineToken) line = { accessToken: lineToken, to: required("LINE_TO") };
 
+  let cloudflare: { apiToken: string; zoneId: string } | undefined;
+  const cfToken = env.CLOUDFLARE_API_TOKEN?.trim();
+  if (cfToken) {
+    const zoneId = required("CLOUDFLARE_ZONE_ID");
+    if (zoneId && !/^[0-9a-f]{32}$/.test(zoneId)) fail("CLOUDFLARE_ZONE_ID", "must be the 32-character zone ID");
+    cloudflare = { apiToken: cfToken, zoneId };
+  }
+
   if (problems.length) throw new ConfigError(variables, problems);
 
   return {
@@ -135,5 +144,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       caCertPath: env.WAZUH_INDEXER_CA_CERT?.trim() || undefined,
     },
     notifications: { email, line },
+    cloudflare,
   };
 }

@@ -22,7 +22,7 @@ export function bangkokMonthStart(now: Date): Date {
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) - 7 * 3_600_000);
 }
 
-export interface ExecutiveSummary {
+export interface IncidentSummary {
   periodStart: Date;
   open: Record<Severity, number>;
   openedThisPeriod: Record<Severity, number>;
@@ -39,7 +39,7 @@ export function summarize(
   sources: { status: "healthy" | "stale" | "unknown" }[],
   notificationFailures: number,
   now: Date,
-): ExecutiveSummary {
+): IncidentSummary {
   const periodStart = bangkokMonthStart(now);
   const open = bySeverity();
   const openedThisPeriod = bySeverity();
@@ -76,7 +76,7 @@ export async function loadSummary(
   db: import("@prisma/client").PrismaClient,
   sources: { status: "healthy" | "stale" | "unknown" }[],
   now = new Date(),
-): Promise<ExecutiveSummary> {
+): Promise<IncidentSummary> {
   const periodStart = bangkokMonthStart(now);
   const incidents = await db.incident.findMany({
     where: {

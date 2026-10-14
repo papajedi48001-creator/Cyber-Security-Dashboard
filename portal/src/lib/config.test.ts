@@ -103,4 +103,12 @@ describe("loadConfig", () => {
     expectConfigError({ ...VALID_ENV, LINE_CHANNEL_ACCESS_TOKEN: "t" }, "LINE_TO");
     expectConfigError({ ...VALID_ENV, SMTP_HOST: "smtp", SMTP_FROM: "s@h", NOTIFY_EMAIL_TO: "a@h", SMTP_USER: "u" }, "SMTP_PASSWORD");
   });
+
+  it("configures the Cloudflare connector only with a valid zone", () => {
+    expect(loadConfig(VALID_ENV).cloudflare).toBeUndefined();
+    const zone = "0123456789abcdef0123456789abcdef";
+    expect(loadConfig({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t", CLOUDFLARE_ZONE_ID: zone }).cloudflare).toEqual({ apiToken: "t", zoneId: zone });
+    expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t" }, "CLOUDFLARE_ZONE_ID");
+    expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t", CLOUDFLARE_ZONE_ID: "example.com" }, "CLOUDFLARE_ZONE_ID");
+  });
 });

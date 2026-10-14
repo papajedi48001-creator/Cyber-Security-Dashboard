@@ -199,6 +199,19 @@ export function createPortMonitorService({ store, audit, clock = () => new Date(
       return revoked;
     },
 
+    /** Counts only, for the executive summary. */
+    async executivePortStatus(actor: Principal) {
+      requirePermission(actor, "executive.read");
+      const snap = await snapshot();
+      const open = snap.exposures.filter((f) => f.classification === "UNAPPROVED" || f.classification === "EXCEPTION_EXPIRED");
+      return {
+        scanStatus: snap.scan.status,
+        unapprovedExposures: open.length,
+        highRiskExposures: open.filter((f) => f.severity === "P2").length,
+        restrictedEgressPorts: snap.egress.filter((e) => e.classification !== "APPROVED").length,
+      };
+    },
+
     /** For the worker: exposures that need an incident (approved ones never do). */
     async findingsForIncidents() {
       const snap = await snapshot();

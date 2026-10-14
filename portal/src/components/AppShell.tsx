@@ -9,8 +9,8 @@ const NAV: { href: string; label: string; permission: Permission }[] = [
   { href: "/assets", label: "Asset", permission: "asset.read" },
   { href: "/backups", label: "Backup", permission: "evidence.read" },
   { href: "/port-monitor", label: "พอร์ต", permission: "evidence.read" },
-  { href: "/web-application-firewall", label: "WAF", permission: "incident.read" },
-  { href: "/duo", label: "Duo", permission: "incident.read" },
+  { href: "/web-application-firewall", label: "WAF", permission: "evidence.read" },
+  { href: "/duo", label: "Duo", permission: "evidence.read" },
   { href: "/executive", label: "รายงานผู้บริหาร", permission: "executive.read" },
   { href: "/admin/users", label: "ผู้ใช้", permission: "user.manage" },
 ];

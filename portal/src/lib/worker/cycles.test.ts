@@ -15,6 +15,7 @@ function deps(overrides: Partial<WorkerDeps> = {}) {
     portFindings: async () => [
       { category: "external_exposure", sourceName: "203.0.113.10:3389/TCP", severity: "P2", title: "RDP", detectedAt: new Date() },
     ],
+    refreshWaf: async () => ({ status: "ok", total: 5 }),
     notifier: { dispatchDue: async () => ({ sent: 2, failed: 0 }) },
     silentSources: async () => [{ name: "sophos-firewall", critical: true, reason: "silent", since: new Date() }],
     log: (event, detail) => logs.push({ event, detail }),

@@ -4,15 +4,21 @@ import { formatBangkok } from "@/lib/format";
 import { SLA_LABELS } from "@/lib/incidents/labels";
 import { slaState } from "@/lib/incidents/sla";
 import { STATUS_LABELS } from "@/lib/incidents/service";
-import { loadSummary } from "@/lib/reports/summary";
+import { loadSummary } from "@/lib/reporting/incident-summary";
 import { getServices } from "@/lib/server/context";
 import { requirePageSession } from "@/lib/server/session";
 import { getSourceOverview } from "@/lib/sources";
 
 export default async function OverviewPage() {
   const session = await requirePageSession("incident.read");
-  const { config, incidents, notifier, backups } = getServices();
+  const { config, incidents, notifier, backups, ports, waf, duo } = getServices();
   const now = new Date();
+  const [portSnap, wafSummary, duoStatus] = await Promise.all([
+    ports.getSnapshot(session.user),
+    waf.getSampledWafSummary(session.user),
+    duo.getStatus(session.user),
+  ]);
+  const openExposures = portSnap.exposures.filter((f) => f.classification === "UNAPPROVED" || f.classification === "EXCEPTION_EXPIRED");
   const [open, sources, failures, backupStatus] = await Promise.all([
     incidents.listIncidents(session.user, { view: "open" }),
     getSourceOverview(prisma, session.user, config.wazuh.pollIntervalSeconds, now),
@@ -99,6 +105,24 @@ export default async function OverviewPage() {
         )}
         {unverified > 0 && <p className="state-warn">ยังไม่ยืนยันการกู้คืน {unverified} งาน</p>}
         <Link href="/backups">ดูทั้งหมด</Link>
+      </div>
+
+      <div className="card">
+        <h2>โมดูลอื่น</h2>
+        <ul>
+          <li className={portSnap.scan.status === "fresh" && openExposures.length === 0 ? "state-ok" : "state-bad"}>
+            <Link href="/port-monitor">พอร์ต</Link>: {portSnap.scan.reason}
+            {openExposures.length > 0 && ` · เปิดโดยไม่ได้รับอนุมัติ ${openExposures.length} รายการ`}
+          </li>
+          <li className={wafSummary.status === "fresh" ? "state-ok" : "state-warn"}>
+            <Link href="/web-application-firewall">WAF (sampled)</Link>: {wafSummary.reason}
+          </li>
+          <li className={duoStatus.state === "current" ? "state-ok" : "state-bad"}>
+            <Link href="/duo">Duo (ตรวจด้วยมือ)</Link>:{" "}
+            {duoStatus.last ? `ตรวจล่าสุด ${formatBangkok(duoStatus.last.checkedAt)}` : "ยังไม่เคยตรวจ"}
+            {duoStatus.state === "overdue" && " · เลยกำหนด"}
+          </li>
+        </ul>
       </div>
 
       <div className="card">

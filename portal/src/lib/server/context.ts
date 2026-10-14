@@ -11,6 +11,10 @@ import { createBackupService, type BackupService } from "../backups/service";
 import { PrismaDeliveryStore } from "../db/delivery-store";
 import { PrismaIncidentStore } from "../db/incident-store";
 import { PrismaPortStore } from "../db/port-store";
+import { PrismaDuoCheckStore, PrismaWafStore } from "../db/waf-duo-stores";
+import { createCloudflareClient } from "../cloudflare/client";
+import { createWafService, type WafService } from "../cloudflare/service";
+import { createDuoManualCheckService, type DuoManualCheckService } from "../duo/manual-check";
 import { createPortMonitorService, type PortMonitorService } from "../port-monitor/service";
 import { createIncidentService, type IncidentService } from "../incidents/service";
 import { createEmailChannel, createLineChannel } from "../notifications/channels";
@@ -26,6 +30,8 @@ export interface Services {
   notifier: Notifier;
   backups: BackupService;
   ports: PortMonitorService;
+  waf: WafService;
+  duo: DuoManualCheckService;
 }
 
 let services: Services | undefined;
@@ -64,6 +70,12 @@ export function getServices(): Services {
     notifier,
     backups: createBackupService({ store: new PrismaBackupStore(prisma), audit }),
     ports,
+    waf: createWafService({
+      source: config.cloudflare ? createCloudflareClient(config.cloudflare) : null,
+      store: new PrismaWafStore(prisma),
+      audit,
+    }),
+    duo: createDuoManualCheckService({ store: new PrismaDuoCheckStore(prisma), audit }),
   };
   return services;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bangkokMonthStart, summarize, type IncidentFacts } from "./summary";
+import { bangkokMonthStart, summarize, type IncidentFacts } from "./incident-summary";
 
 const NOW = new Date("2026-10-14T03:00:00Z");
 const at = (iso: string) => new Date(iso);

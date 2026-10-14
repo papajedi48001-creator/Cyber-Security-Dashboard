@@ -14,11 +14,12 @@ import { createWorkerCycles } from "./lib/worker/cycles";
 const NOTIFY_INTERVAL_MS = 30_000;
 const SOURCE_HEALTH_INTERVAL_MS = 60_000;
 const PORT_INTERVAL_MS = 5 * 60_000;
+const WAF_INTERVAL_MS = 15 * 60_000;
 
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports } = getServices();
+const { config, audit, incidents, notifier, ports, waf } = getServices();
 const source = createIndexerClient({
   baseUrl: config.wazuh.indexerUrl,
   username: config.wazuh.username,
@@ -33,6 +34,7 @@ const cycles = createWorkerCycles({
   notifier,
   silentSources: () => silentSources(prisma, config.wazuh.pollIntervalSeconds),
   portFindings: ports.findingsForIncidents,
+  refreshWaf: waf.refresh,
   log,
   newCorrelationId: randomUUID,
 });
@@ -54,6 +56,7 @@ log("worker.started", { pollIntervalSeconds: config.wazuh.pollIntervalSeconds, c
 every("intake", config.wazuh.pollIntervalSeconds * 1000, cycles.intake);
 every("source_health", SOURCE_HEALTH_INTERVAL_MS, cycles.sourceHealth);
 every("ports", PORT_INTERVAL_MS, cycles.ports);
+if (waf.configured) every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
