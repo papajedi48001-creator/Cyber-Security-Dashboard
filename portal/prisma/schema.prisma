@@ -1,0 +1,199 @@
+// Portal MariaDB schema. Stores only Portal operational records: no patient
+// data and no raw Wazuh events (ADR 0004, ADR 0006). All DateTime values are UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SECURITY_ADMINISTRATOR
+  SECURITY_OPERATOR
+  EXECUTIVE_VIEWER
+}
+
+enum Severity {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum IncidentStatus {
+  NEW
+  ASSIGNED
+  ACKNOWLEDGED
+  INVESTIGATING
+  MITIGATED
+  PENDING_REVIEW
+  CLOSED
+}
+
+model User {
+  id               String    @id @default(cuid())
+  username         String    @unique @db.VarChar(64)
+  displayName      String    @db.VarChar(128)
+  role             Role
+  passwordHash     String    @db.VarChar(255)
+  totpSecretEnc    String?   @db.VarChar(255)
+  totpEnrolledAt   DateTime?
+  lastTotpStep     BigInt?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  sessions       Session[]
+  ownedIncidents Incident[] @relation("IncidentOwner")
+}
+
+model Session {
+  id         String   @id @db.VarChar(64) // SHA-256 of the session token, never the token itself
+  userId     String
+  csrfSecret String   @db.VarChar(64)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+  mfaPassed  Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Asset {
+  id             String   @id @default(cuid())
+  name           String   @unique @db.VarChar(128)
+  role           String   @db.VarChar(255)
+  owner          String   @db.VarChar(128)
+  critical       Boolean  @default(false)
+  criticalReason String?  @db.VarChar(500)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  logSources LogSource[]
+  incidents  Incident[]
+}
+
+model LogSource {
+  id                      String    @id @default(cuid())
+  name                    String    @unique @db.VarChar(128)
+  type                    String    @db.VarChar(64)
+  expectedIntervalMinutes Int
+  lastEventAt             DateTime?
+  assetId                 String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  asset Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+}
+
+model ConnectorState {
+  name          String    @id @db.VarChar(64)
+  checkpoint    String?   @db.VarChar(255)
+  lastAttemptAt DateTime?
+  lastSuccessAt DateTime?
+  lastError     String?   @db.VarChar(500)
+  updatedAt     DateTime  @updatedAt
+}
+
+model AlertReference {
+  id               String    @id @default(cuid())
+  wazuhAlertId     String    @unique @db.VarChar(128)
+  ruleId           Int
+  ruleLevel        Int
+  category         String    @db.VarChar(64)
+  description      String    @db.VarChar(255)
+  sourceName       String    @db.VarChar(128)
+  detectedAt       DateTime
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  deliveryCount    Int       @default(1)
+  investigationUrl String    @db.VarChar(500)
+  incidentId       String?
+
+  incident Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([detectedAt])
+  @@index([category])
+}
+
+model Incident {
+  id             String         @id @default(cuid())
+  number         String         @unique @db.VarChar(32)
+  title          String         @db.VarChar(255)
+  severity       Severity
+  status         IncidentStatus @default(NEW)
+  assetId        String?
+  ownerId        String?
+  detectedAt     DateTime
+  acknowledgeDue DateTime
+  acknowledgedAt DateTime?
+  mitigatedAt    DateTime?
+  closedAt       DateTime?
+  cause          String?        @db.Text
+  remediation    String?        @db.Text
+  closedById     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  asset    Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  owner    User?                   @relation("IncidentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  alerts   AlertReference[]
+  timeline IncidentTimelineEntry[]
+  evidence ClosureEvidence[]
+
+  @@index([status, severity])
+}
+
+model IncidentTimelineEntry {
+  id         String   @id @default(cuid())
+  incidentId String
+  at         DateTime @default(now())
+  actorId    String?
+  type       String   @db.VarChar(64)
+  note       String?  @db.Text
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, at])
+}
+
+model ClosureEvidence {
+  id            String    @id @default(cuid())
+  incidentId    String
+  submittedById String
+  submittedAt   DateTime  @default(now())
+  summary       String    @db.Text
+  reference     String    @db.VarChar(500)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  decision      String?   @db.VarChar(16)
+  reviewNote    String?   @db.Text
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+}
+
+// Append-only: a database trigger (see migration) rejects UPDATE and DELETE.
+model AuditRecord {
+  id            String   @id @default(cuid())
+  at            DateTime @default(now())
+  actorId       String?  @db.VarChar(64)
+  actorLabel    String   @db.VarChar(128)
+  action        String   @db.VarChar(64)
+  targetType    String   @db.VarChar(64)
+  targetId      String?  @db.VarChar(128)
+  metadata      Json?
+  correlationId String   @db.VarChar(64)
+
+  @@index([at])
+  @@index([targetType, targetId])
+}
