@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   await auth.logout(token, newCorrelationId());
   const response = NextResponse.redirect(new URL("/login", request.url), 303);
-  response.cookies.delete(SESSION_COOKIE);
+  // A __Host- cookie is only replaced by a Set-Cookie that is also Secure with Path=/.
+  response.cookies.delete({ name: SESSION_COOKIE, path: "/", secure: true });
   return response;
 }
