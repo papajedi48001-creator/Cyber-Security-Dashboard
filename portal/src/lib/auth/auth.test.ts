@@ -3,7 +3,7 @@ import { InMemoryAuditStore, createAuditLog } from "../audit";
 import { can, ForbiddenError, requireRole } from "./authorize";
 import { hashPassword, verifyPassword, PasswordPolicyError } from "./password";
 import { isTrustedRequest } from "./network";
-import { createAuthService, InMemoryUserStore, InMemorySessionStore, type AuthService } from "./service";
+import { createAuthService, InMemoryExternalIdentityStore, InMemoryUserStore, InMemorySessionStore, type AuthService } from "./service";
 import { decryptSecret, encryptSecret, generateTotpSecret, totpAt } from "./totp";
 
 const KEY = Buffer.alloc(32, 9);
@@ -19,6 +19,7 @@ async function setup(role: "SECURITY_ADMINISTRATOR" | "SECURITY_OPERATOR" | "EXE
   const service = createAuthService({
     users,
     sessions,
+    externalIdentities: new InMemoryExternalIdentityStore(),
     audit: createAuditLog(auditStore, clock),
     totpKey: KEY,
     clock,

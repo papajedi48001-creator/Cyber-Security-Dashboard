@@ -10,3 +10,5 @@ This roadmap decomposes the approved design into independently reviewable implem
 
 Deferred capabilities are separate changes requiring separate approval: AD/LDAP identity, Duo API connector after entitlement confirmation, EDR Adapter, Backup File Management, and Wazuh scale-out/high availability.
 
+Provider ID Login ([ADR 0009](../../adr/0009-provider-id-login-for-the-portal.md)) is an approved addition to the Portal identity, planned in [Provider ID Login](./2026-10-14-provider-id-login.md). Its real provider adapter and UAT wait for the hospital's client registration and firewall approval.
+

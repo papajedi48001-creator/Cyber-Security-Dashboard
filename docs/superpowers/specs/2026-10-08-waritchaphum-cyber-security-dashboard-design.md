@@ -61,7 +61,7 @@ Cloudflare Free / Duo / GDCC Backup / External Scan ------+
 - The Portal reads Wazuh by querying the Wazuh Indexer with a read-only Wazuh Service Account (ADR 0006); Wazuh does not call the Portal.
 - Sophos sends TLS Syslog only to the Log Relay; the relay allowlists authorized source addresses and retains a bounded buffer for Wazuh maintenance or outage.
 - Portal connectors use dedicated read-only service accounts. Credentials are stored in a secrets mechanism, are rotatable, and are never embedded in source code, export files, URLs, or notifications.
-- The Portal begins with local accounts and MFA for Security Administrators and Security Operators. It has a defined identity transition to AD/LDAP once stable.
+- The Portal begins with local accounts and MFA for Security Administrators and Security Operators. It has a defined identity transition to AD/LDAP once stable, and supports Provider ID Login for linked Portal Users with Portal MFA, keeping local accounts as break-glass ([ADR 0009](../../adr/0009-provider-id-login-for-the-portal.md)).
 - Executive Viewer is read-only and sees a redacted summary with no internal IP addresses, usernames, raw logs, detailed vulnerabilities, or patient data.
 
 ## Data policy and retention

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createUserAction, resetMfaAction, type EnrollmentState } from "./actions";
+import { createUserAction, linkProviderIdAction, resetMfaAction, type EnrollmentState, type LinkState } from "./actions";
 
 function EnrollmentResult({ state }: { state: EnrollmentState }) {
   if (state.error)
@@ -75,5 +75,24 @@ export function ResetMfaForm({ csrf, userId }: { csrf: string; userId: string })
       </form>
       <EnrollmentResult state={state} />
     </>
+  );
+}
+
+export function LinkProviderIdForm({ csrf, userId }: { csrf: string; userId: string }) {
+  const [state, action, pending] = useActionState<LinkState, FormData>(linkProviderIdAction, {});
+  return (
+    <form action={action} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <input type="hidden" name="csrf" value={csrf} />
+      <input type="hidden" name="userId" value={userId} />
+      <input name="providerId" aria-label="Provider ID" placeholder="Provider ID (ไม่ใช่เลขบัตรประชาชน)" required pattern="[A-Za-z0-9._\-]{1,64}" />
+      <button className="secondary" type="submit" disabled={pending}>
+        ผูก
+      </button>
+      {state.error && (
+        <span className="error" role="alert">
+          {state.error}
+        </span>
+      )}
+    </form>
   );
 }

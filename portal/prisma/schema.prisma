@@ -48,8 +48,25 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  sessions       Session[]
-  ownedIncidents Incident[] @relation("IncidentOwner")
+  sessions           Session[]
+  externalIdentities ExternalIdentity[]
+  ownedIncidents     Incident[]         @relation("IncidentOwner")
+}
+
+// Provider ID Link (ADR 0009): only the issuer and the external subject. No national ID
+// numbers, provider tokens or raw profiles are stored.
+model ExternalIdentity {
+  id         String   @id @default(cuid())
+  userId     String
+  issuer     String   @db.VarChar(64)
+  subject    String   @db.VarChar(64)
+  linkedAt   DateTime @default(now())
+  linkedById String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@unique([userId, issuer])
 }
 
 model Session {

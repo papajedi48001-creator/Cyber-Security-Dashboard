@@ -21,6 +21,8 @@ export interface PortalConfig {
     line?: { accessToken: string; to: string };
   };
   cloudflare?: { apiToken: string; zoneId: string };
+  /** Provider ID Login (ADR 0009). Client credentials are added with the real adapter. */
+  providerId?: { hospitalCode: string };
 }
 
 /** Thrown at startup. Names the variables at fault and never includes their values. */
@@ -126,6 +128,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     cloudflare = { apiToken: cfToken, zoneId };
   }
 
+  let providerId: { hospitalCode: string } | undefined;
+  const hospitalCode = env.PROVIDER_ID_HOSPITAL_CODE?.trim();
+  if (hospitalCode) {
+    if (!/^\d{5}$/.test(hospitalCode)) fail("PROVIDER_ID_HOSPITAL_CODE", "must be the five-digit health facility code");
+    providerId = { hospitalCode };
+  }
+
   if (problems.length) throw new ConfigError(variables, problems);
 
   return {
@@ -145,5 +154,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     notifications: { email, line },
     cloudflare,
+    providerId,
   };
 }
