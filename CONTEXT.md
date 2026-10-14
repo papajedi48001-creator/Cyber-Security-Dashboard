@@ -189,8 +189,16 @@ MariaDB instance หรือ service ที่จัดสรรเฉพาะ
 _Avoid_: ฐานข้อมูล HOSxP ร่วม, Wazuh Indexer
 
 **Portal Identity Transition**:
-การใช้ Local Account พร้อม MFA สำหรับ Security Administrator และ Security Operator ในระยะแรก แล้วเปลี่ยนการยืนยันตัวตนของ Portal ไปใช้ AD/LDAP เมื่อระบบเสถียร
+การใช้ Local Account พร้อม MFA สำหรับ Security Administrator และ Security Operator ในระยะแรก แล้วเปลี่ยนการยืนยันตัวตนของ Portal ไปใช้ AD/LDAP เมื่อระบบเสถียร และรองรับ Provider ID Login เพิ่มเติม (ADR 0009) โดยยังคง Local Account ไว้เป็นทางสำรอง
 _Avoid_: Local Account ถาวร, บัญชีร่วม, การเปิดใช้โดยไม่มี MFA
+
+**Provider ID Login**:
+การเข้าสู่ระบบ Portal ด้วย Provider ID ของกระทรวงสาธารณสุข (login ผ่าน Health ID แล้วดึงโปรไฟล์ Provider ID) ซึ่งสำเร็จได้เฉพาะเมื่อ Provider ID ถูกผูกกับ Portal User ที่ใช้งานอยู่ และต้องยืนยัน MFA ของ Portal ต่อ (ADR 0009)
+_Avoid_: SSO สร้างบัญชีอัตโนมัติ, การเข้าสู่ระบบด้วยเลขประจำตัวประชาชน
+
+**Provider ID Link**:
+การผูก Provider ID หนึ่งรายการกับ Portal User หนึ่งคน ซึ่ง Security Administrator เป็นผู้สร้างหรือยกเลิกและมี audit record ทุกครั้ง Portal เก็บเพียง issuer และ Provider ID
+_Avoid_: การผูกด้วยชื่อหรืออีเมล, การเก็บ token หรือโปรไฟล์ดิบ
 
 **Wazuh Service Account**:
 บัญชีเฉพาะของ Portal ที่มีสิทธิ์อ่าน alert index ใน Wazuh Indexer เท่านั้น หมุนเวียน credential ได้ และบันทึกการใช้งานได้
