@@ -1,13 +1,12 @@
-import { PrismaClient } from "@prisma/client";
 import { afterAll, describe, expect, it } from "vitest";
+import { testDatabaseUrl, testPrisma } from "./test-db";
 import { createAuditLog } from "../audit";
 import { PrismaAuditStore } from "./audit-store";
 
-const url = process.env.TEST_DATABASE_URL;
 
-describe.skipIf(!url)("PrismaAuditStore (MariaDB)", () => {
-  const prisma = new PrismaClient({ datasources: { db: { url } } });
-  afterAll(() => prisma.$disconnect());
+describe.skipIf(!testDatabaseUrl)("PrismaAuditStore (MariaDB)", () => {
+  const prisma = testPrisma();
+  afterAll(() => prisma?.$disconnect());
 
   it("persists an audit record in UTC", async () => {
     const audit = createAuditLog(new PrismaAuditStore(prisma), () => new Date("2026-10-14T03:00:00Z"));

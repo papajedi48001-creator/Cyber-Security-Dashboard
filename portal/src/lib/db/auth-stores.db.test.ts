@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { afterAll, describe, expect, it } from "vitest";
+import { testDatabaseUrl, testPrisma } from "./test-db";
 import { createAuditLog } from "../audit";
 import { hashPassword } from "../auth/password";
 import { createAuthService } from "../auth/service";
@@ -7,12 +7,11 @@ import { encryptSecret, generateTotpSecret, totpAt } from "../auth/totp";
 import { PrismaAuditStore } from "./audit-store";
 import { PrismaSessionStore, PrismaUserStore } from "./auth-stores";
 
-const url = process.env.TEST_DATABASE_URL;
 const KEY = Buffer.alloc(32, 3);
 
-describe.skipIf(!url)("auth stores (MariaDB)", () => {
-  const prisma = new PrismaClient({ datasources: { db: { url } } });
-  afterAll(() => prisma.$disconnect());
+describe.skipIf(!testDatabaseUrl)("auth stores (MariaDB)", () => {
+  const prisma = testPrisma();
+  afterAll(() => prisma?.$disconnect());
 
   it("logs in, validates and revokes a session end to end", async () => {
     const users = new PrismaUserStore(prisma);
