@@ -41,7 +41,7 @@ python3 docs/operations/tests/validate_cutover_record.py docs/operations/sophos-
 | `rollback.tested` | |
 | `rollback.elapsed_hours` | |
 
-## ช่วงที่ log ไม่เข้า SIEM
+## ช่วงที่ Wazuh ยังไม่ได้รับ log (ระหว่างเพิ่มปลายทาง Syslog)
 
 | Field | Value |
 |---|---|

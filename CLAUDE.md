@@ -18,7 +18,7 @@ Guidance for agents working in this repository.
 - Missing or stale source data must render as stale/unavailable, never as zero or healthy.
 - Notifications (LINE, email) carry only Notification Summary fields.
 - Never add restore, immediate-delete, or backup-command controls to the Portal.
-- Production changes (Sophos logging, rebuilding the SIEM server) need explicit hospital approval; plans and runbooks prepare them, they never perform them.
+- Production changes (Sophos logging, installing or changing the Wazuh VM) need explicit hospital approval; plans and runbooks prepare them, they never perform them.
 
 ## Conventions
 

@@ -16,17 +16,16 @@
 
 ## Go/No-Go
 
-เงื่อนไขที่ต้องครบก่อนติดตั้ง Wazuh แทนที่บน Existing SIEM Server:
+เงื่อนไขที่ต้องครบก่อนสร้าง Wazuh VM (ADR 0008):
 
 - [ ] ทุกแถวข้างบนผ่าน หรือมีเหตุผลยอมรับความเสี่ยงที่ลงนามแล้ว
-- [ ] [siem-capacity-baseline.md](./siem-capacity-baseline.md) ระบุว่าเครื่องผ่านขั้นต่ำของ Wazuh all-in-one
-- [ ] [fortisiem-evidence-export-record.md](./fortisiem-evidence-export-record.md) ยืนยันว่า image กู้คืนได้จริง
-- [ ] TLS Log Relay รับ Sophos log อยู่แล้ว (แผน 1 Task 2)
+- [ ] [siem-capacity-baseline.md](./siem-capacity-baseline.md) ระบุว่า Wazuh VM ผ่านขั้นต่ำของ Wazuh all-in-one และ Sophos ส่ง Syslog ไปปลายทางที่สองได้
+- [ ] TLS Log Relay ติดตั้งและผ่าน test แล้ว (แผน 1 Task 2)
 
 | รายการ | ค่า |
 |---|---|
 | ผลตัดสินใจ | GO / NO-GO |
 | เหตุผล | |
-| ผู้อนุมัติการ rebuild (ชื่อ ตำแหน่ง) | |
+| ผู้อนุมัติการสร้าง Wazuh VM และเพิ่มปลายทาง Syslog ใน Sophos (ชื่อ ตำแหน่ง) | |
 | วันที่อนุมัติ | |
-| ช่วงเวลาที่วางแผนหยุด FortiSIEM | |
+| ช่วงเวลาที่วางแผนเพิ่มปลายทาง Syslog ใน Sophos | |

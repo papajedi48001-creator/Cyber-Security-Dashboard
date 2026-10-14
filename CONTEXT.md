@@ -109,12 +109,16 @@ _Avoid_: EDR ผู้ให้บริการเฉพาะราย, EDR M
 _Avoid_: ข้อมูลผู้ป่วย, ข้อมูลส่วนบุคคลที่ไม่จำเป็น
 
 **Existing SIEM**:
-FortiSIEM ที่ INET ให้บริการอยู่ก่อนโครงการนี้ บน Existing SIEM Server ซึ่งจะถูกแทนที่ด้วย Wazuh หลังส่งออกหลักฐานแล้ว
+FortiSIEM ที่ INET ให้บริการอยู่ก่อนโครงการนี้ บน Existing SIEM Server โครงการนี้ไม่หยุด ไม่แก้ไข และไม่ติดตั้งทับ (ADR 0008) อนาคตของ FortiSIEM เป็นการตัดสินใจแยกของโรงพยาบาล
 _Avoid_: SIEM ใหม่, ระบบที่โรงพยาบาลจะดูแลต่อระยะยาว
 
 **Existing SIEM Server**:
-เครื่อง server เดิมที่ใช้รัน FortiSIEM และจะถูกติดตั้งใหม่เป็น Wazuh All-in-One ตาม ADR 0005
-_Avoid_: เครื่องใหม่, เครื่องทดสอบชั่วคราว
+เครื่อง server เดิมที่ใช้รัน FortiSIEM ซึ่งยังทำงานต่อตามเดิม Wazuh ไม่ได้ติดตั้งบนเครื่องนี้ (ADR 0008)
+_Avoid_: เครื่องที่จะติดตั้ง Wazuh
+
+**Wazuh VM**:
+VM ใหม่ที่สร้างเพื่อรัน Wazuh All-in-One โดยเฉพาะ แยกจาก FortiSIEM, TLS Log Relay และ Portal
+_Avoid_: Existing SIEM Server, เครื่องที่ใช้ร่วมกับระบบอื่น
 
 **SIEM Service Transition**:
 การส่งมอบความรับผิดชอบ FortiSIEM จาก INET สู่โรงพยาบาล โดยรักษาความต่อเนื่องของข้อมูล การตรวจจับ และสิทธิ์เข้าถึงที่จำเป็น
@@ -133,15 +137,15 @@ _Avoid_: ผู้รับผิดชอบ SIEM คนเดียว
 _Avoid_: การเปลี่ยนแปลงที่ไม่มีร่องรอย
 
 **SIEM Handover Acceptance Test**:
-การทดสอบรับมอบที่รวมการเข้าใช้ระบบ การรับ Sophos Log, Rule ตรวจจับตัวอย่าง, การ export หลักฐาน และ backup/restore FortiSIEM พร้อมบันทึกผลร่วมกัน ก่อนติดตั้ง Wazuh แทนที่
+การทดสอบรับมอบที่รวมการเข้าใช้ระบบ การรับ Sophos Log, Rule ตรวจจับตัวอย่าง, การ export หลักฐาน และ backup/restore FortiSIEM พร้อมบันทึกผลร่วมกัน เพื่อให้โรงพยาบาลดูแล FortiSIEM ต่อได้หลังบริการ INET สิ้นสุด
 _Avoid_: การรับมอบด้วยเอกสารอย่างเดียว
 
 **Open Source SIEM**:
-แพลตฟอร์ม SIEM ที่โรงพยาบาลติดตั้งและควบคุมเองบน Existing SIEM Server หลังย้ายออกจาก FortiSIEM ในโครงการนี้คือ Wazuh โดยไม่ผูกกับสิทธิ์ใช้งานหรือบริการ INET
+แพลตฟอร์ม SIEM ที่โรงพยาบาลติดตั้งและควบคุมเองบน Wazuh VM ในโครงการนี้คือ Wazuh โดยไม่ผูกกับสิทธิ์ใช้งานหรือบริการ INET
 _Avoid_: FortiSIEM ที่ไม่มีสิทธิ์ใช้งาน, SIEM แบบ managed service
 
 **Legacy SIEM Evidence Store**:
-ชุดข้อมูลที่ export จาก FortiSIEM (รายงาน, rule, parser, การตั้งค่า, Log ในช่วง retention) และ image สำรองของ FortiSIEM ที่เก็บแบบเข้ารหัสนอก Existing SIEM Server จนสิ้นสุดระยะเวลา retention โดย Wazuh เริ่มเก็บ Log ใหม่ของตนเอง
+ชุดข้อมูลที่ export จาก FortiSIEM (รายงาน, rule, parser, การตั้งค่า, Log ในช่วง retention) และ image สำรองของ FortiSIEM ที่เก็บแบบเข้ารหัสนอก Existing SIEM Server จนสิ้นสุดระยะเวลา retention ใช้เฉพาะเมื่อโรงพยาบาลตัดสินใจปลด FortiSIEM ในภายหลัง ไม่ใช่เงื่อนไขก่อนติดตั้ง Wazuh
 _Avoid_: การย้าย Log ดิบทั้งหมดเข้า Wazuh, การล้างเครื่องโดยไม่ export
 
 **Emergency Rule Change Evidence**:
@@ -149,7 +153,7 @@ _Avoid_: การย้าย Log ดิบทั้งหมดเข้า Wa
 _Avoid_: บันทึกแค่ชื่อและเวลา, การปรับ Rule ที่ไร้ร่องรอย
 
 **Wazuh All-in-One**:
-การติดตั้ง Wazuh server, indexer และ dashboard บน Existing SIEM Server เครื่องเดียวสำหรับขอบเขตรุ่นแรก โดยต้องติดตาม capacity เพื่อเตรียมแยก node เมื่อข้อมูลหรือจำนวนแหล่ง Log เพิ่มขึ้น
+การติดตั้ง Wazuh server, indexer และ dashboard บน Wazuh VM เครื่องเดียวสำหรับขอบเขตรุ่นแรก โดยต้องติดตาม capacity เพื่อเตรียมแยก node เมื่อข้อมูลหรือจำนวนแหล่ง Log เพิ่มขึ้น
 _Avoid_: Wazuh cluster ตั้งแต่เริ่ม, การขยายโดยไม่มีหลักฐาน capacity
 
 **TLS Log Relay**:

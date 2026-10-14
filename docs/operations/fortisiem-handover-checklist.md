@@ -1,6 +1,6 @@
 # FortiSIEM Handover Checklist
 
-แบบตรวจรับ SIEM Handover Package จาก INET ก่อนติดตั้ง Wazuh แทนที่บน Existing SIEM Server (ADR 0005)
+แบบตรวจรับ SIEM Handover Package จาก INET เพื่อให้โรงพยาบาลดูแล FortiSIEM ต่อได้ ระหว่างที่ Wazuh ติดตั้งบน VM แยก (ADR 0008) การตรวจรับนี้ไม่แก้ไข FortiSIEM
 ห้ามบันทึก password, private key หรือข้อมูลผู้ป่วยในเอกสารนี้ ให้อ้างอิงตำแหน่งที่เก็บใน secrets vault แทน
 
 ## 1. สิ่งที่ต้องได้รับจาก INET

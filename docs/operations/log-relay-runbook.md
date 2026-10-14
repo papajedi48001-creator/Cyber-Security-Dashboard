@@ -12,9 +12,9 @@ Relay รับ Syslog จาก Sophos Firewall แบบ TLS (port 6514) ต�
 
 ## ข้อกำหนดเครื่อง
 
-- VM แยกจากเครื่อง Wazuh (ADR 0005) อยู่ใน Management VLAN
+- VM แยกจาก Wazuh VM (ADR 0004, ADR 0008) อยู่ใน Management VLAN
 - syslog-ng 4.x, Python 3.10 ขึ้นไป, openssl
-- พื้นที่ดิสก์สำหรับ buffer ≥ EPS สูงสุด × ขนาด event เฉลี่ย × ระยะเวลาที่ Wazuh อาจหยุด (รวมช่วง rebuild) ให้คำนวณจาก [siem-capacity-baseline.md](./siem-capacity-baseline.md)
+- พื้นที่ดิสก์สำหรับ buffer ≥ EPS สูงสุด × ขนาด event เฉลี่ย × ระยะเวลาที่ Wazuh อาจหยุด (อย่างน้อย 24 ชั่วโมงตาม SIEM Recovery Objective) ให้คำนวณจาก [siem-capacity-baseline.md](./siem-capacity-baseline.md)
 - Firewall ของ relay: รับ 6514/tcp เฉพาะจาก Sophos และส่งออก 514/tcp เฉพาะไป Wazuh
 
 ## ติดตั้งครั้งแรก
@@ -75,12 +75,12 @@ syslog-ng-ctl stats | python3 relay_health.py --stats-file - --queued-warn 1000
 
 ## Rollback
 
-กลับไปใช้เส้นทาง log ที่อนุมัติล่าสุด:
+Sophos ส่ง log ไป FortiSIEM ตามปลายทางเดิมตลอด (ADR 0008) relay เป็นปลายทางที่สองเท่านั้น จึง rollback ได้โดย:
 
-- ก่อน cutover: ตั้ง Sophos ให้ส่งตรงไป FortiSIEM ตามค่าเดิมที่บันทึกใน [fortisiem-handover-checklist.md](./fortisiem-handover-checklist.md)
-- หลัง rebuild เป็น Wazuh แล้ว: กู้คืน image FortiSIEM ตาม [fortisiem-evidence-export-record.md](./fortisiem-evidence-export-record.md) แล้วเปลี่ยน `--wazuh-host` ให้ชี้ FortiSIEM
+- ลบหรือปิดปลายทาง Syslog ที่ชี้มาที่ relay ใน Sophos (ต้องได้รับอนุมัติเหมือนตอนเพิ่ม)
+- ห้ามแก้ปลายทางเดิมที่ส่งไป FortiSIEM ค่าเดิมบันทึกไว้ใน [fortisiem-handover-checklist.md](./fortisiem-handover-checklist.md)
 
-ทุกครั้งที่ rollback ให้บันทึกเวลาเริ่ม-จบและช่วงที่ log อาจขาดหาย
+ทุกครั้งที่ rollback ให้บันทึกเวลาเริ่ม-จบ และช่วงที่ Wazuh ไม่ได้รับ log
 
 ## ทดสอบ
 

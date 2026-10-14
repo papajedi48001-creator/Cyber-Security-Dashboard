@@ -3,7 +3,7 @@
 # Addresses below are documentation ranges.
 
 wazuh:
-  host: 192.0.2.20             # Existing SIEM Server rebuilt as Wazuh all-in-one
+  host: 192.0.2.20             # Dedicated Wazuh VM (ADR 0008)
   version: "4.x"               # record the exact installed version
   hot_retention_days: 90
   archive_retention_days: 365

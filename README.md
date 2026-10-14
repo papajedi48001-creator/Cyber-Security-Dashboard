@@ -2,7 +2,7 @@
 
 ระบบเฝ้าระวังและจัดการเหตุการณ์ความมั่นคงปลอดภัยไซเบอร์ของโรงพยาบาลวาริชภูมิ ประกอบด้วย
 
-- **Wazuh all-in-one** ติดตั้งแทน FortiSIEM บน server เดิม ใช้รับ Log, ตรวจจับ และสืบค้นเชิงลึก
+- **Wazuh all-in-one** ติดตั้งบน VM ใหม่แยกจาก FortiSIEM (FortiSIEM ทำงานต่อตามเดิม) ใช้รับ Log, ตรวจจับ และสืบค้นเชิงลึก
 - **TLS Log Relay** รับ Syslog จาก Sophos Firewall แบบเข้ารหัสและ buffer ระหว่าง Wazuh หยุดทำงาน
 - **Security Operations Portal** สำหรับงานประจำวันของทีม IT: Incident, audit, asset, backup evidence, port monitor, Cloudflare, Duo และรายงานผู้บริหาร
 
