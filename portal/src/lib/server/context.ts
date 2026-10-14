@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { createAssetService, type AssetService } from "../assets/service";
 import { createAuditLog, type AuditLog } from "../audit";
 import { createAuthService, type AuthService } from "../auth/service";
 import { loadConfig, type PortalConfig } from "../config";
 import { prisma } from "../db/client";
+import { PrismaAssetStore } from "../db/asset-store";
 import { PrismaAuditStore } from "../db/audit-store";
 import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
 
@@ -10,6 +12,7 @@ export interface Services {
   config: PortalConfig;
   audit: AuditLog;
   auth: AuthService;
+  assets: AssetService;
 }
 
 let services: Services | undefined;
@@ -28,6 +31,7 @@ export function getServices(): Services {
       audit,
       totpKey: config.totpEncryptionKey,
     }),
+    assets: createAssetService({ store: new PrismaAssetStore(prisma), audit }),
   };
   return services;
 }
