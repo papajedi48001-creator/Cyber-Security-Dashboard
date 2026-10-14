@@ -1,0 +1,5 @@
+# Senders allowed to deliver TLS Syslog to the relay, one IP or CIDR per line.
+# Copy to "allowed-sources" (git-ignored) and replace with the real Sophos
+# management interface addresses. Wildcards and networks wider than /24 are
+# rejected by render_config.py.
+198.51.100.1

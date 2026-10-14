@@ -6,7 +6,7 @@
 
 **Architecture:** Validate the FortiSIEM handover, export its evidence and a restorable image off the server, put the TLS Log Relay in front so Sophos events are buffered, then rebuild the existing SIEM server as Wazuh all-in-one (ADR 0005). Wazuh is the forensic and detection system; it does not host the Portal workflow.
 
-**Tech Stack:** Existing SIEM server hardware; Legacy SIEM Evidence Store (FortiSIEM export and image); Linux VM or server; syslog-ng or rsyslog TLS relay; Wazuh server/indexer/dashboard all-in-one; TLS certificates; GDCC encrypted backup target.
+**Tech Stack:** Python 3 standard library for infrastructure tests; Existing SIEM server hardware; Legacy SIEM Evidence Store (FortiSIEM export and image); Linux VM or server; syslog-ng or rsyslog TLS relay; Wazuh server/indexer/dashboard all-in-one; TLS certificates; GDCC encrypted backup target.
 
 **Spec:** `docs/superpowers/specs/2026-10-08-waritchaphum-cyber-security-dashboard-design.md`
 
@@ -75,12 +75,15 @@ git commit -m "docs: record SIEM handover readiness"
 **Files:**
 - Create: `infrastructure/log-relay/syslog-ng.conf.template`
 - Create: `infrastructure/log-relay/allowed-sources.example`
-- Create: `infrastructure/log-relay/tests/test-config.ps1`
+- Create: `infrastructure/log-relay/render_config.py`
+- Create: `infrastructure/log-relay/relay_health.py`
+- Create: `infrastructure/log-relay/tests/test_relay.py`
+- Create: `infrastructure/log-relay/tests/test_synthetic_tls.py`
 - Create: `docs/operations/log-relay-runbook.md`
 
 **Interfaces:**
 - Consumes: Sophos source addresses, hospital PKI certificate, destination Wazuh endpoint.
-- Produces: TLS listener, finite disk buffer, and `test-config.ps1`.
+- Produces: TLS listener, finite disk buffer, allowlist renderer, and relay health check.
 
 - [ ] **Step 1: Write failing relay tests**
 
@@ -88,7 +91,7 @@ Assert that the template requires TLS, has no wildcard sender policy, uses a fin
 
 - [ ] **Step 2: Run tests before implementing the template**
 
-Run: `pwsh infrastructure/log-relay/tests/test-config.ps1`  
+Run: `python3 -m unittest discover -s infrastructure/log-relay/tests`  
 Expected: FAIL because the relay templates are absent.
 
 - [ ] **Step 3: Implement templates and runbook**
@@ -113,7 +116,7 @@ git commit -m "feat: add TLS log relay foundation"
 - Create: `infrastructure/wazuh/index-lifecycle-policy.example.json`
 - Create: `docs/operations/log-archive-runbook.md`
 - Create: `infrastructure/wazuh/priority-signals.md`
-- Create: `infrastructure/wazuh/tests/test-priority-signals.ps1`
+- Create: `infrastructure/wazuh/tests/test_priority_signals.py`
 - Create: `docs/operations/wazuh-all-in-one-runbook.md`
 - Create: `docs/operations/wazuh-capacity-check.md`
 
@@ -127,7 +130,7 @@ Include every named alert category, one normal event that must not alert, and on
 
 - [ ] **Step 2: Run test against the empty Wazuh environment**
 
-Run: `pwsh infrastructure/wazuh/tests/test-priority-signals.ps1`  
+Run: `python3 -m unittest discover -s infrastructure/wazuh/tests`  
 Expected: FAIL because rules and fixtures are absent.
 
 - [ ] **Step 3: Rebuild the server, install Wazuh, and configure TLS, indices, retention, source inventory, rules, and capacity checks**
@@ -151,7 +154,7 @@ git commit -m "feat: configure Wazuh security detection foundation"
 - Create: `docs/operations/siem-backup-recovery-runbook.md`
 - Create: `docs/operations/sophos-cutover-checklist.md`
 - Create: `docs/operations/sophos-cutover-record.md`
-- Create: `docs/operations/tests/validate-cutover-record.ps1`
+- Create: `docs/operations/tests/validate_cutover_record.py`
 
 **Interfaces:**
 - Consumes: accepted Wazuh deployment and encrypted GDCC backup target.
@@ -163,7 +166,7 @@ Reject a record missing rollback, source-health validation, notification evidenc
 
 - [ ] **Step 2: Run validation before creating the runbook**
 
-Run: `pwsh docs/operations/tests/validate-cutover-record.ps1`  
+Run: `python3 docs/operations/tests/validate_cutover_record.py docs/operations/sophos-cutover-record.md`  
 Expected: FAIL because required evidence is absent.
 
 - [ ] **Step 3: Write recovery and cutover runbooks**

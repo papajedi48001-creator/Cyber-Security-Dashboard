@@ -41,3 +41,13 @@ jobs:
           done < <(git ls-files '*.md')
           [ ! -s /tmp/broken ] || status=1
           exit $status
+
+  log-relay:
+    name: Log relay tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install syslog-ng
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq syslog-ng-core
+      - name: Run unit and end-to-end tests
+        run: python3 -m unittest discover -s infrastructure/log-relay/tests -v
