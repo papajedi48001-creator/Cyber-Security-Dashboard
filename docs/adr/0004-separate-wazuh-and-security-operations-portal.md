@@ -1,5 +1,8 @@
 # Separate Wazuh forensic investigation from the security operations portal
 
+- Status: Accepted
+- Date: 2026-10-08
+
 Wazuh will remain the system for raw log analysis and forensic investigation, while a separate Security Operations Portal will manage daily operations, incidents, audit evidence, backup monitoring, port monitoring, Cloudflare, Duo, and executive reporting. This preserves SIEM depth without forcing hospital workflow and cross-service integrations into Wazuh.
 
 ## Consequences

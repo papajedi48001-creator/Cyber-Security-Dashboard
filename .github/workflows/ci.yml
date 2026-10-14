@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4 \
+            detect --source /repo --redact --verbose
+
+  docs-links:
+    name: Markdown relative links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check relative links resolve
+        run: |
+          status=0
+          while IFS= read -r file; do
+            dir=$(dirname "$file")
+            { grep -oE '\]\([^)#[:space:]]+' "$file" || true; } | sed 's/^](//' | while IFS= read -r link; do
+              case "$link" in http*|mailto:*) continue ;; esac
+              if [ ! -e "$dir/$link" ]; then
+                echo "::error file=$file::broken link $link"
+                echo broken >> /tmp/broken
+              fi
+            done
+          done < <(git ls-files '*.md')
+          [ ! -s /tmp/broken ] || status=1
+          exit $status

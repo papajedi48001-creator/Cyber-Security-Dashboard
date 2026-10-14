@@ -4,10 +4,6 @@
 
 ## Language
 
-**Security Operations Dashboard**:
-ศูนย์เฝ้าระวังประจำวันสำหรับทีม IT ที่รวมสถานะ การแจ้งเตือน และความคืบหน้าการจัดการเหตุการณ์ พร้อมมุมมองสรุปสำหรับผู้บริหาร
-_Avoid_: SOC เต็มรูปแบบ, หน้ารวมกราฟ
-
 **Security Event**:
 เหตุการณ์หรือความผิดปกติที่ระบบตรวจพบและนำเสนอให้ทีม IT พิจารณา แต่ยังไม่จำเป็นต้องเป็นเหตุการณ์ที่ต้องดำเนินการทุกครั้ง
 _Avoid_: Incident, Ticket
@@ -33,7 +29,7 @@ _Avoid_: ระบบปลอดภัย, ไม่มีเหตุการ
 _Avoid_: อุปกรณ์ทุกเครื่อง, เครื่องสำคัญ
 
 **Security Administrator**:
-ผู้ดูแลการตั้งค่า แหล่งข้อมูล ผู้ใช้งาน และนโยบายของ Dashboard โดยต้องใช้การยืนยันตัวตนหลายปัจจัย
+ผู้ดูแลการตั้งค่า แหล่งข้อมูล ผู้ใช้งาน และนโยบายของ Portal โดยต้องใช้การยืนยันตัวตนหลายปัจจัย
 _Avoid_: Security Operator, ผู้บริหาร
 
 **Security Operator**:
@@ -45,7 +41,7 @@ _Avoid_: Security Administrator, ผู้ชม
 _Avoid_: Security Operator
 
 **Hot Log**:
-Log ที่ยังค้นหาและวิเคราะห์จาก Dashboard ได้โดยตรงภายในช่วงเวลาเก็บข้อมูลออนไลน์ที่กำหนด
+Log ที่ยังค้นหาและวิเคราะห์ใน Wazuh ได้โดยตรงภายในช่วงเวลาเก็บข้อมูลออนไลน์ที่กำหนด
 _Avoid_: Log Archive
 
 **Log Archive**:
@@ -89,7 +85,7 @@ _Avoid_: หมายเหตุปิดงาน
 _Avoid_: ผู้ปิดเหตุการณ์
 
 **Notification Summary**:
-ข้อมูลขั้นต่ำสำหรับแจ้งเหตุผ่าน LINE OA ได้แก่ ระดับความรุนแรง เลข Incident เวลาตรวจพบ ชื่อระบบ และลิงก์เข้าสู่ Dashboard
+ข้อมูลขั้นต่ำสำหรับแจ้งเหตุผ่าน LINE OA ได้แก่ ระดับความรุนแรง เลข Incident เวลาตรวจพบ ชื่อระบบ และลิงก์เข้าสู่ Portal
 _Avoid_: Log ดิบ, IP ภายใน, Username, รายละเอียดผู้ป่วย
 
 **Sophos Priority Signal**:
@@ -101,88 +97,72 @@ _Avoid_: Sophos Log ทุกชนิด
 _Avoid_: Raw WAF Log, หลักฐานการสืบสวนครบถ้วน
 
 **Duo Manual Check**:
-การตรวจสอบสถานะและ Log ของ Duo ผ่าน Duo Admin Panel โดยเจ้าหน้าที่ในช่วงที่ Dashboard ยังไม่มีสิทธิ์เชื่อมต่อ Duo Admin API แบบอ่านอย่างเดียว
+การตรวจสอบสถานะและ Log ของ Duo ผ่าน Duo Admin Panel โดยเจ้าหน้าที่ในช่วงที่ Portal ยังไม่มีสิทธิ์เชื่อมต่อ Duo Admin API แบบอ่านอย่างเดียว
 _Avoid_: Duo Connector, การนำเข้าข้อมูลอัตโนมัติ
 
 **EDR Adapter**:
-ส่วนเชื่อมต่อผู้ให้บริการ EDR ที่แปลงข้อมูลสถานะเครื่อง การตรวจพบภัยคุกคาม ระดับความรุนแรง การแยกเครื่อง และสุขภาพของ Agent เป็นรูปแบบกลางของ Dashboard
+ส่วนเชื่อมต่อผู้ให้บริการ EDR ที่แปลงข้อมูลสถานะเครื่อง การตรวจพบภัยคุกคาม ระดับความรุนแรง การแยกเครื่อง และสุขภาพของ Agent เป็นรูปแบบกลางของ Portal
 _Avoid_: EDR ผู้ให้บริการเฉพาะราย, EDR Module แบบผูกค่าย
 
 **Operational Security Data**:
 ข้อมูลเทคนิคที่จำเป็นต่อการตรวจสอบความมั่นคงปลอดภัย เช่น เวลา แหล่งกำเนิด ปลายทาง กฎและผลการตรวจจับ โดยลดหรือปกปิดข้อมูลส่วนบุคคลและไม่รับข้อมูลผู้ป่วย
 _Avoid_: ข้อมูลผู้ป่วย, ข้อมูลส่วนบุคคลที่ไม่จำเป็น
 
-**TLS Syslog Ingestion**:
-การส่ง Syslog จาก Sophos Firewall ผ่านการเชื่อมต่อเข้ารหัสไปยัง Log Collector ภายในเครือข่ายโรงพยาบาล
-_Avoid_: Syslog แบบไม่เข้ารหัส
-
 **Existing SIEM**:
-FortiSIEM server เดิมที่มีอยู่ก่อนโครงการ Dashboard นี้ ซึ่งช่วงแรก INET ให้บริการและช่วงถัดไปโรงพยาบาลรับผิดชอบการดำเนินงานเอง
-_Avoid_: SIEM ใหม่, Log Store ใหม่, SIEM ของ INET ตลอดไป
+FortiSIEM ที่ INET ให้บริการอยู่ก่อนโครงการนี้ บน Existing SIEM Server ซึ่งจะถูกแทนที่ด้วย Wazuh หลังส่งออกหลักฐานแล้ว
+_Avoid_: SIEM ใหม่, ระบบที่โรงพยาบาลจะดูแลต่อระยะยาว
 
-**FortiSIEM Integration**:
-การเชื่อม Dashboard กับ Existing SIEM แบบอ่านอย่างเดียว เพื่อรับข้อมูลเหตุการณ์ สถานะแหล่ง Log และข้อมูลสรุปที่ผู้รับผิดชอบระบบอนุญาต โดย FortiSIEM ยังคงเป็นแหล่งข้อมูลหลัก
-_Avoid_: การรับ Log ซ้ำ, การแทนที่ FortiSIEM
+**Existing SIEM Server**:
+เครื่อง server เดิมที่ใช้รัน FortiSIEM และจะถูกติดตั้งใหม่เป็น Wazuh All-in-One ตาม ADR 0005
+_Avoid_: เครื่องใหม่, เครื่องทดสอบชั่วคราว
 
 **SIEM Service Transition**:
 การส่งมอบความรับผิดชอบ FortiSIEM จาก INET สู่โรงพยาบาล โดยรักษาความต่อเนื่องของข้อมูล การตรวจจับ และสิทธิ์เข้าถึงที่จำเป็น
 _Avoid_: การยกเลิกบริการโดยไม่ส่งมอบ, การเปลี่ยน SIEM โดยทันที
-
-**SIEM Service Account**:
-บัญชีเฉพาะสำหรับ Dashboard เพื่ออ่านข้อมูลจาก FortiSIEM ตามขอบเขตที่กำหนด หมุนเวียน credential และบันทึกการใช้งานได้
-_Avoid_: บัญชีส่วนบุคคล, บัญชีทีมร่วมกัน
-
-**SIEM Self-Operation**:
-รูปแบบหลังยุติบริการ INET ซึ่งโรงพยาบาลรับผิดชอบการดูแล FortiSIEM ทั้งระบบปฏิบัติการ พื้นที่จัดเก็บ Log parser, rule, การสำรอง และการอัปเดต
-_Avoid_: SIEM แบบ managed service, ดูแลเฉพาะ Dashboard
 
 **SIEM Handover Package**:
 ชุดสิ่งส่งมอบก่อนยุติบริการ SIEM ได้แก่ credential, แผนผัง, inventory, สเปก, log source, rule/parser/report, runbook, คู่มืออัปเกรด และหลักฐานการทดสอบรับมอบ
 _Avoid_: credential อย่างเดียว, เอกสารเท่าที่มี
 
 **Shared SIEM Operations**:
-รูปแบบที่ทีม IT โรงพยาบาลร่วมกันรับผิดชอบ FortiSIEM โดยไม่มี SIEM Owner รายบุคคล แต่ทุกการเข้าถึงและเปลี่ยนแปลงต้องยังตรวจสอบย้อนหลังได้
+รูปแบบที่ทีม IT โรงพยาบาลร่วมกันรับผิดชอบ Wazuh โดยไม่มี SIEM Owner รายบุคคล แต่ทุกการเข้าถึงและเปลี่ยนแปลงต้องยังตรวจสอบย้อนหลังได้
 _Avoid_: ผู้รับผิดชอบ SIEM คนเดียว
 
 **Emergency SIEM Change**:
-การปรับ Rule, Parser หรือการตั้งค่า FortiSIEM ได้ทันทีเมื่อจำเป็น โดยต้องบันทึกเหตุผล ผู้ดำเนินการ เวลา และผลกระทบหลังดำเนินการ
+การปรับ Rule, Decoder หรือการตั้งค่า Wazuh ได้ทันทีเมื่อจำเป็น โดยต้องบันทึกเหตุผล ผู้ดำเนินการ เวลา และผลกระทบหลังดำเนินการ
 _Avoid_: การเปลี่ยนแปลงที่ไม่มีร่องรอย
 
 **SIEM Handover Acceptance Test**:
-การทดสอบรับมอบที่รวมการเข้าใช้ระบบ การรับ Sophos Log, Rule ตรวจจับตัวอย่าง, การเชื่อม Dashboard แบบอ่านอย่างเดียว, backup/restore FortiSIEM และการแจ้งเตือน พร้อมบันทึกผลร่วมกัน
+การทดสอบรับมอบที่รวมการเข้าใช้ระบบ การรับ Sophos Log, Rule ตรวจจับตัวอย่าง, การ export หลักฐาน และ backup/restore FortiSIEM พร้อมบันทึกผลร่วมกัน ก่อนติดตั้ง Wazuh แทนที่
 _Avoid_: การรับมอบด้วยเอกสารอย่างเดียว
 
 **Open Source SIEM**:
-แพลตฟอร์ม SIEM ที่โรงพยาบาลติดตั้งและควบคุมเองบนเครื่องเดิมหลังย้ายออกจาก FortiSIEM โดยไม่ผูกกับสิทธิ์ใช้งานหรือบริการ INET
+แพลตฟอร์ม SIEM ที่โรงพยาบาลติดตั้งและควบคุมเองบน Existing SIEM Server หลังย้ายออกจาก FortiSIEM ในโครงการนี้คือ Wazuh โดยไม่ผูกกับสิทธิ์ใช้งานหรือบริการ INET
 _Avoid_: FortiSIEM ที่ไม่มีสิทธิ์ใช้งาน, SIEM แบบ managed service
 
 **Legacy SIEM Evidence Store**:
-FortiSIEM เดิมที่เก็บแบบ read-only จนสิ้นสุดระยะเวลา retention เพื่ออ้างอิง Log, รายงาน และหลักฐานก่อนการย้าย โดย SIEM ใหม่เริ่มเก็บ Log ใหม่ของตนเอง
-_Avoid_: การย้าย Log ดิบทั้งหมด, การปิดระบบเดิมทันที
+ชุดข้อมูลที่ export จาก FortiSIEM (รายงาน, rule, parser, การตั้งค่า, Log ในช่วง retention) และ image สำรองของ FortiSIEM ที่เก็บแบบเข้ารหัสนอก Existing SIEM Server จนสิ้นสุดระยะเวลา retention โดย Wazuh เริ่มเก็บ Log ใหม่ของตนเอง
+_Avoid_: การย้าย Log ดิบทั้งหมดเข้า Wazuh, การล้างเครื่องโดยไม่ export
 
 **Emergency Rule Change Evidence**:
 หลักฐานของการปรับ Rule แบบทันที ได้แก่ ผู้ดำเนินการ เวลา เหตุผล ค่า Rule ก่อนและหลังเปลี่ยน และผลตรวจสอบหลังเปลี่ยน
 _Avoid_: บันทึกแค่ชื่อและเวลา, การปรับ Rule ที่ไร้ร่องรอย
 
 **Wazuh All-in-One**:
-การติดตั้ง Wazuh server, indexer และ dashboard บนเครื่องเดียวสำหรับขอบเขตรุ่นแรก โดยต้องติดตาม capacity เพื่อเตรียมแยก node เมื่อข้อมูลหรือจำนวนแหล่ง Log เพิ่มขึ้น
+การติดตั้ง Wazuh server, indexer และ dashboard บน Existing SIEM Server เครื่องเดียวสำหรับขอบเขตรุ่นแรก โดยต้องติดตาม capacity เพื่อเตรียมแยก node เมื่อข้อมูลหรือจำนวนแหล่ง Log เพิ่มขึ้น
 _Avoid_: Wazuh cluster ตั้งแต่เริ่ม, การขยายโดยไม่มีหลักฐาน capacity
 
 **TLS Log Relay**:
-ระบบรับ Syslog แบบ TLS ภายในเครือข่ายโรงพยาบาลที่ตรวจสอบแหล่งส่ง เก็บ buffer ชั่วคราว และส่งต่อ Log ไปยัง Wazuh
-_Avoid_: การส่ง Sophos Log เข้าระบบวิเคราะห์โดยตรง, Log Relay บน Internet
-
-**Transitional Dashboard Identity**:
-บัญชีภายใน Dashboard ที่ใช้ชั่วคราวในรุ่นแรก พร้อม MFA สำหรับ Security Administrator และ Security Operator และมีเส้นทางย้ายไป AD/SSO
-_Avoid_: บัญชีร่วม, การเลื่อน MFA
+ระบบรับ Syslog จาก Sophos Firewall แบบ TLS ภายในเครือข่ายโรงพยาบาล ที่ตรวจสอบแหล่งส่ง เก็บ buffer ชั่วคราว และส่งต่อ Log ไปยัง Wazuh โดยรันแยกจากเครื่อง Wazuh เพื่อ buffer ได้ระหว่าง Wazuh หยุดทำงาน
+_Avoid_: Log Collector, Syslog แบบไม่เข้ารหัส, การส่ง Sophos Log เข้า Wazuh โดยตรง, Log Relay บน Internet
 
 **SIEM Recovery Objective**:
 เป้าหมายกู้คืน Wazuh all-in-one และข้อมูลที่จำเป็นภายใน 24 ชั่วโมง โดยยอมรับช่องว่าง Log ที่อาจเกิดขึ้นระหว่างการกู้คืน
 _Avoid_: High Availability, ไม่มี downtime
 
 **Security Operations Portal**:
-Portal ของโรงพยาบาลสำหรับงานเฝ้าระวังประจำวัน การจัดการ Security Incident, Backup Evidence, Cloudflare, Duo, Port Monitor และรายงานสรุป โดยอ่านสัญญาณด้าน Log จาก Wazuh
-_Avoid_: Wazuh Dashboard, หน้าจอ SIEM
+ศูนย์เฝ้าระวังประจำวันของทีม IT โรงพยาบาลสำหรับการจัดการ Security Incident, Backup Evidence, Cloudflare, Duo, Port Monitor และรายงานสรุปสำหรับผู้บริหาร โดยดึงสรุป alert จาก Wazuh Indexer แบบอ่านอย่างเดียว (ADR 0006)
+_Avoid_: Security Operations Dashboard (ชื่อเดิม), Wazuh Dashboard, หน้าจอ SIEM, SOC เต็มรูปแบบ
 
 **Forensic Investigation**:
 การสืบค้นและวิเคราะห์ Log เชิงลึกใน Wazuh เพื่อหาข้อเท็จจริงของเหตุการณ์
@@ -193,7 +173,7 @@ VM หรือ Server ภายในที่แยกจาก Wazuh ซึ�
 _Avoid_: Wazuh all-in-one host, HOSxP server
 
 **Portal Security Database**:
-ฐานข้อมูลเฉพาะของ Security Operations Portal สำหรับ Incident, audit log, asset register และ Backup Evidence ซึ่งแยกจากฐานข้อมูล HIS
+ฐานข้อมูลเฉพาะของ Security Operations Portal สำหรับ Incident, audit log, asset register และ Backup Evidence ซึ่งแยกจากฐานข้อมูล HIS (HOSxP)
 _Avoid_: HOSxP database, Wazuh Indexer
 
 **Management-Only Access**:
@@ -205,5 +185,30 @@ MariaDB instance หรือ service ที่จัดสรรเฉพาะ
 _Avoid_: ฐานข้อมูล HOSxP ร่วม, Wazuh Indexer
 
 **Portal Identity Transition**:
-การใช้ Local Account พร้อม MFA ในระยะแรก แล้วเปลี่ยนการยืนยันตัวตนของ Portal ไปใช้ AD/LDAP เมื่อระบบเสถียร
-_Avoid_: Local Account ถาวร, การเปิดใช้โดยไม่มี MFA
+การใช้ Local Account พร้อม MFA สำหรับ Security Administrator และ Security Operator ในระยะแรก แล้วเปลี่ยนการยืนยันตัวตนของ Portal ไปใช้ AD/LDAP เมื่อระบบเสถียร
+_Avoid_: Local Account ถาวร, บัญชีร่วม, การเปิดใช้โดยไม่มี MFA
+
+**Wazuh Service Account**:
+บัญชีเฉพาะของ Portal ที่มีสิทธิ์อ่าน alert index ใน Wazuh Indexer เท่านั้น หมุนเวียน credential ได้ และบันทึกการใช้งานได้
+_Avoid_: บัญชีส่วนบุคคล, บัญชี admin ของ Wazuh
+
+**External Exposure Scan**:
+การสแกนพอร์ตของ public IP ของโรงพยาบาลจากภายนอกเครือข่ายตามรอบที่อนุมัติ เพื่อหา External Port Exposure (ADR 0007)
+_Avoid_: การสแกนเครือข่ายภายใน, การสแกน IP ที่ไม่ใช่ของโรงพยาบาล
+
+**Approved Exposure**:
+รายการพอร์ตหรือบริการที่อนุญาตให้เข้าถึงจาก Internet โดยมีผู้รับผิดชอบ เหตุผล และวันหมดอายุ เมื่อหมดอายุต้องกลับมาทบทวน
+_Avoid_: Allowlist ถาวร
+
+## Deprecated terms
+
+คำเหล่านี้มาจากแนวทางเดิมที่ให้โรงพยาบาลดูแล FortiSIEM ต่อ (ADR 0001 ซึ่งถูกแทนที่แล้ว) ไม่ควรใช้ในเอกสารหรือโค้ดใหม่
+
+| คำเดิม | ใช้คำนี้แทน |
+|---|---|
+| Security Operations Dashboard | Security Operations Portal |
+| FortiSIEM Integration | การดึงข้อมูลจาก Wazuh Indexer (ADR 0006) |
+| SIEM Service Account | Wazuh Service Account |
+| SIEM Self-Operation | Shared SIEM Operations บน Wazuh |
+| TLS Syslog Ingestion, Log Collector | TLS Log Relay |
+| Transitional Dashboard Identity | Portal Identity Transition |

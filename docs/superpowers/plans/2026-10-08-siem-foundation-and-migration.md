@@ -2,18 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the retiring INET-managed FortiSIEM service with an independently operated Wazuh all-in-one deployment that receives Sophos events through a resilient TLS Log Relay.
+**Goal:** Replace the retiring INET-managed FortiSIEM service with an independently operated Wazuh all-in-one deployment, installed in place on the existing SIEM server, that receives Sophos events through a resilient TLS Log Relay.
 
-**Architecture:** Preserve FortiSIEM as a read-only evidence store, validate its handover, then build Wazuh, the Log Relay, and their backup/recovery controls on separate validated capacity before Sophos cutover. Wazuh is the forensic and detection system; it does not host the Portal workflow.
+**Architecture:** Validate the FortiSIEM handover, export its evidence and a restorable image off the server, put the TLS Log Relay in front so Sophos events are buffered, then rebuild the existing SIEM server as Wazuh all-in-one (ADR 0005). Wazuh is the forensic and detection system; it does not host the Portal workflow.
 
-**Tech Stack:** Existing FortiSIEM evidence store; Linux VM or server; syslog-ng or rsyslog TLS relay; Wazuh server/indexer/dashboard all-in-one; TLS certificates; GDCC encrypted backup target.
+**Tech Stack:** Existing SIEM server hardware; Legacy SIEM Evidence Store (FortiSIEM export and image); Linux VM or server; syslog-ng or rsyslog TLS relay; Wazuh server/indexer/dashboard all-in-one; TLS certificates; GDCC encrypted backup target.
 
 **Spec:** `docs/superpowers/specs/2026-10-08-waritchaphum-cyber-security-dashboard-design.md`
 
 ## Global Constraints
 
-- Keep FortiSIEM read-only until retention, investigation, and approval requirements allow decommissioning.
-- Do not run old and new production SIEM workloads on the same resources without measured capacity evidence.
+- Do not rebuild the existing SIEM server until the FortiSIEM evidence export and image are stored off the server and the image restore has been verified.
+- Keep the Legacy SIEM Evidence Store until retention, investigation, and approval requirements allow its destruction.
+- The TLS Log Relay runs on its own VM, not on the Wazuh host, and must be receiving Sophos events before FortiSIEM is shut down.
 - Sophos Syslog uses TLS to an internal Log Relay; no public log listener is allowed.
 - Queryable Wazuh logs target 90 days; encrypted archives target one year.
 - Recovery objective for this all-in-one phase is 24 hours, not high availability.
@@ -25,16 +26,18 @@
 - A spoofed or unapproved Syslog sender must be rejected by relay network and certificate controls.
 - Wazuh event loss must be measured; `events_dropped` is unacceptable during validation.
 - Backup success must not be presented as restoration verification.
-- Cutover rollback must restore the last accepted Sophos logging path without silently losing the source-health signal.
+- Cutover rollback must restore the FortiSIEM image and the last accepted Sophos logging path without silently losing the source-health signal.
+- The logging gap between FortiSIEM shutdown and Wazuh acceptance must be measured and recorded, not assumed to be zero.
 
 ---
 
-### Task 1: Establish handover and capacity evidence
+### Task 1: Establish handover, capacity, and evidence-export records
 
 **Files:**
 - Create: `docs/operations/fortisiem-handover-checklist.md`
 - Create: `docs/operations/siem-capacity-baseline.md`
 - Create: `docs/operations/fortisiem-acceptance-record.md`
+- Create: `docs/operations/fortisiem-evidence-export-record.md`
 
 **Interfaces:**
 - Consumes: INET SIEM Handover Package and hospital-approved access.
@@ -50,13 +53,17 @@ Expected: every row contains timestamp, tester, actual result, artifact referenc
 
 - [ ] **Step 3: Measure capacity**
 
-Record CPU, RAM, disk, free storage, source count, average/peak EPS, and projected 90-day storage. Exclude secrets and patient data.
+Record CPU, RAM, disk, free storage, source count, average/peak EPS, and projected 90-day storage of the existing SIEM server. Compare against the Wazuh all-in-one minimum and state the scale-out threshold (EPS and disk %). Exclude secrets and patient data.
 
-- [ ] **Step 4: Record go/no-go decision**
+- [ ] **Step 4: Export evidence and verify the FortiSIEM image**
 
-Expected: a failed handover or insufficient capacity blocks the next task.
+Export reports, rules, parsers, configuration, and logs inside the retention window; take a full image or backup to encrypted storage off the server; restore it once to separate scratch capacity or confirm restore with INET. Record file hashes, location, and who holds the keys.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Record go/no-go decision**
+
+Expected: a failed handover, insufficient capacity, or an unverified image blocks the rebuild. The rebuild itself needs explicit hospital approval recorded here, because it removes FortiSIEM from the server.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add docs/operations
@@ -90,7 +97,7 @@ The runbook must specify certificate rotation, source-allowlist changes, buffer 
 
 - [ ] **Step 4: Validate with synthetic TLS Syslog**
 
-Expected: allowed event reaches Wazuh, rejected source is evidenced, and simulated Wazuh outage buffers events and raises relay health.
+Expected: allowed event reaches Wazuh, rejected source is evidenced, and simulated Wazuh outage buffers events and raises relay health. The buffer must be sized to hold Sophos peak EPS for the planned rebuild window. Pointing production Sophos at the relay is a production change and waits for hospital approval.
 
 - [ ] **Step 5: Commit**
 
@@ -99,10 +106,12 @@ git add infrastructure/log-relay docs/operations/log-relay-runbook.md
 git commit -m "feat: add TLS log relay foundation"
 ```
 
-### Task 3: Configure Wazuh all-in-one detection
+### Task 3: Rebuild the existing server as Wazuh all-in-one and configure detection
 
 **Files:**
 - Create: `infrastructure/wazuh/inventory.example.yml`
+- Create: `infrastructure/wazuh/index-lifecycle-policy.example.json`
+- Create: `docs/operations/log-archive-runbook.md`
 - Create: `infrastructure/wazuh/priority-signals.md`
 - Create: `infrastructure/wazuh/tests/test-priority-signals.ps1`
 - Create: `docs/operations/wazuh-all-in-one-runbook.md`
@@ -121,9 +130,9 @@ Include every named alert category, one normal event that must not alert, and on
 Run: `pwsh infrastructure/wazuh/tests/test-priority-signals.ps1`  
 Expected: FAIL because rules and fixtures are absent.
 
-- [ ] **Step 3: Install Wazuh and configure TLS, indices, retention, source inventory, rules, and capacity checks**
+- [ ] **Step 3: Rebuild the server, install Wazuh, and configure TLS, indices, retention, source inventory, rules, and capacity checks**
 
-Persist only alert summaries for Portal use; Portal must not receive a raw-log replica.
+Only after Task 1 is go and Task 2's relay is buffering Sophos. Verify that the Wazuh Sophos decoders match the hospital's SFOS log format, and add custom decoders where they do not. Configure a 90-day hot index lifecycle with encrypted snapshots to GDCC for the one-year Log Archive. Create a read-only Wazuh Service Account limited to alert indices for the Portal (ADR 0006); the Portal must not receive a raw-log replica.
 
 - [ ] **Step 4: Run synthetic tests and representative-load checks**
 
@@ -159,15 +168,15 @@ Expected: FAIL because required evidence is absent.
 
 - [ ] **Step 3: Write recovery and cutover runbooks**
 
-Define encrypted backup scope, dual-control key recovery, restore sequence, rollback, and health checks. State that job completion is not restore verification.
+Define encrypted backup scope, dual-control key recovery, restore sequence, rollback by restoring the FortiSIEM image, and health checks. State that job completion is not restore verification.
 
 - [ ] **Step 4: Rehearse with synthetic events**
 
-Expected: recovery documentation, ingestion, priority detection, source health, notification, and rollback are evidenced with actual elapsed time.
+Expected: recovery documentation, ingestion, priority detection, source health, notification, and rollback are evidenced with actual elapsed time, and the logging gap during the rebuild is recorded.
 
-- [ ] **Step 5: Request separate production-cutover approval**
+- [ ] **Step 5: Request production acceptance**
 
-Do not change Sophos logging until the hospital explicitly authorizes it.
+Present the rehearsal evidence and request the hospital's acceptance of Wazuh as the production SIEM. Until accepted, the rollback path (restore FortiSIEM image) stays ready.
 
 - [ ] **Step 6: Commit**
 

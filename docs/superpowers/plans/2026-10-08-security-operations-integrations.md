@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add approved operational modules and redacted notifications to the Portal without expanding its raw-log or patient-data boundary.
+**Goal:** Add approved operational modules and executive reporting to the Portal without expanding its raw-log or patient-data boundary. Notifications are built in the Portal core plan.
 
 **Architecture:** Each external source gets a narrow read-only adapter that emits a normalized status or summary. The Portal independently records freshness, errors, and audit records. Integrations do not share credentials or database access.
 
-**Tech Stack:** Portal core plan; MariaDB; Wazuh summary connector; Cloudflare GraphQL/API read-only token; Duo Admin Panel manual-check workflow; GDCC-compatible backup evidence adapter; SMTP; LINE Messaging API; Vitest; Playwright.
+**Tech Stack:** Portal core plan; MariaDB; Wazuh summary connector; external port scanner (e.g. nmap) on a host outside the hospital network; Sophos configuration export; Cloudflare GraphQL/API read-only token; Duo Admin Panel manual-check workflow; GDCC-compatible backup evidence adapter; Vitest; Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-10-08-waritchaphum-cyber-security-dashboard-design.md`
 
@@ -69,16 +69,18 @@ git commit -m "feat: add backup evidence monitoring"
 **Files:**
 - Create: `portal/src/lib/port-monitor/service.ts`
 - Create: `portal/src/lib/port-monitor/policy.ts`
+- Create: `portal/src/lib/port-monitor/scan-import.ts`
+- Create: `infrastructure/external-scan/README.md`
 - Create: `portal/src/app/port-monitor/page.tsx`
 - Test: `portal/src/lib/port-monitor/service.test.ts`
 
 **Interfaces:**
-- Consumes: normalized Wazuh/Sophos alerts.
-- Produces: `classifyPortFinding(alert, policy): PortFinding` with `EXTERNAL_EXPOSURE` or `RESTRICTED_EGRESS`.
+- Consumes: External Exposure Scan results and Sophos NAT/WAN rule export for exposure (ADR 0007); normalized Wazuh/Sophos alerts for egress.
+- Produces: `importExposureScan(result): Promise<ExposureSnapshot>` and `classifyPortFinding(input, policy): PortFinding` with `EXTERNAL_EXPOSURE` or `RESTRICTED_EGRESS`.
 
 - [ ] **Step 1: Write failing classification and exception-expiry tests**
 
-Cover approved exposure, unapproved SSH/RDP/database exposure, prohibited outbound port, expired exception, and separate families.
+Cover approved exposure, unapproved SSH/RDP/database exposure seen by scan, exposure in Sophos rules but closed in scan, missing or stale scan, prohibited outbound port, expired exception, and separate families.
 
 - [ ] **Step 2: Run test to verify failure**
 
@@ -136,41 +138,38 @@ git add portal/src/lib/cloudflare portal/src/lib/duo portal/src/app/web-applicat
 git commit -m "feat: add WAF and Duo monitoring"
 ```
 
-### Task 4: Add notifications, operations summary, and executive reporting
+### Task 4: Add operations summary and executive reporting
 
 **Files:**
-- Create: `portal/src/lib/notifications/payload.ts`
-- Create: `portal/src/lib/notifications/delivery.ts`
 - Create: `portal/src/lib/reporting/executive-summary.ts`
 - Create: `portal/src/app/overview/page.tsx`
 - Create: `portal/src/app/executive/page.tsx`
-- Test: `portal/src/lib/notifications/payload.test.ts`
 - Test: `portal/src/lib/reporting/executive-summary.test.ts`
 
 **Interfaces:**
-- Produces: `buildNotificationSummary(incident): NotificationSummary`, `deliverNotification(summary): Promise<DeliveryResult>`, and `getExecutiveSummary(range): ExecutiveSummary`.
+- Produces: `getExecutiveSummary(range): ExecutiveSummary`.
 
-- [ ] **Step 1: Write failing payload, delivery failure, SLA, and redaction tests**
+- [ ] **Step 1: Write failing SLA and redaction tests**
 
-Assert LINE/email include only severity, incident number, detection time, system name, and Portal link. Assert delivery failure is audited and queued for escalation.
+Assert executive output has no internal IP, username, raw log, or detailed vulnerability, and that stale sources are shown as stale.
 
 - [ ] **Step 2: Run tests to verify failure**
 
-Run: `npm test -- payload.test.ts executive-summary.test.ts`  
-Expected: FAIL because notification and reporting modules are absent.
+Run: `npm test -- executive-summary.test.ts`  
+Expected: FAIL because reporting modules are absent.
 
-- [ ] **Step 3: Implement Email/LINE delivery, Operations Overview, and redacted Executive Summary**
+- [ ] **Step 3: Implement Operations Overview and redacted Executive Summary**
 
-Use separate adapters; persist delivery status without secrets. Redact through server-side view models, not client-side hiding.
+Redact through server-side view models, not client-side hiding.
 
 - [ ] **Step 4: Run unit and role-based browser tests**
 
-Expected: PASS; executive views and notification payloads contain no restricted fields.
+Expected: PASS; executive views contain no restricted fields.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add portal/src/lib/notifications portal/src/lib/reporting portal/src/app/overview portal/src/app/executive
+git add portal/src/lib/reporting portal/src/app/overview portal/src/app/executive
 git commit -m "feat: add security operations reporting"
 ```
 
