@@ -76,9 +76,9 @@ class Result:
         if self.rule is None or self.rule.level < 3:
             return None
         matched = [g for g in self.rule.groups if g in categories]
-        if len(matched) != 1:
-            raise AssertionError(f"rule {self.rule.id} must carry exactly one category, has {matched}")
-        return matched[0]
+        if len(matched) > 1:
+            raise AssertionError(f"rule {self.rule.id} must carry at most one category, has {matched}")
+        return matched[0] if matched else None
 
 
 class Ruleset:

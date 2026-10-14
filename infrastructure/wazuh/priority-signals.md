@@ -9,7 +9,7 @@ Wazuh rules that turn Sophos SFOS events into the categories the Portal uses. Ea
 | `firewall_rule_change` | 100130 | 10 | `log_type="Event"`, `log_subtype="Admin"`, `status="Successful"`, message names a rule or policy being added/modified/deleted | Feeds Emergency Rule Change Evidence |
 | `vpn_anomaly` | 100140 | 8 | `log_type="Event"`, VPN component (SSL VPN, IPSec, L2TP, PPTP, Sophos Connect), `status="Failed"` | |
 | `ips_av_web_event` | 100150 | 10 | `log_type` IDP/Anti-Virus/Anti-Spam/Content Filtering/ATP/Sandstorm/Zero-day Protection with a drop/alert/virus/denied subtype | |
-| `log_source_health` | 100181, 100182 | 9, 12 | TLS Log Relay health report `degraded`/`unknown` (100181) or `failed` (100182) | Absence of Sophos events is evaluated by the Portal from `expected_interval_minutes` in the inventory |
+| `log_source_health` | 100181, 100182 | 9, 12 | TLS Log Relay health report `degraded`/`unknown` (100181) or `failed` (100182); `healthy` raises heartbeat 100183 (level 3, no category) | Absence of Sophos events is evaluated by the Portal from `expected_interval_minutes` in the inventory |
 
 Rule 100100 (level 0) is the base for all SFOS events; normal allowed traffic and successful logins stop there and do not alert. They are still kept in `wazuh-archives-*` for forensic search.
 

@@ -9,6 +9,7 @@ export interface PortalConfig {
   timeZone: "Asia/Bangkok";
   wazuh: {
     indexerUrl: string;
+    dashboardUrl: string;
     username: string;
     password: string;
     pollIntervalSeconds: number;
@@ -67,6 +68,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   const indexerUrl = required("WAZUH_INDEXER_URL");
   if (indexerUrl && !isHttpsUrl(indexerUrl)) fail("WAZUH_INDEXER_URL", "must be an https:// URL");
+  const dashboardUrl = required("WAZUH_DASHBOARD_URL");
+  if (dashboardUrl && !isHttpsUrl(dashboardUrl)) fail("WAZUH_DASHBOARD_URL", "must be an https:// URL");
   const username = required("WAZUH_INDEXER_USERNAME");
   const password = required("WAZUH_INDEXER_PASSWORD");
 
@@ -100,6 +103,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     timeZone: "Asia/Bangkok",
     wazuh: {
       indexerUrl: indexerUrl.replace(/\/$/, ""),
+      dashboardUrl: dashboardUrl.replace(/\/$/, ""),
       username,
       password,
       pollIntervalSeconds,

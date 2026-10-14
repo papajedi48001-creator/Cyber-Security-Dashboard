@@ -48,6 +48,19 @@ class RulesetFileTests(unittest.TestCase):
         for rule_id in ids:
             self.assertIn(rule_id, CUSTOM_RULE_RANGE)
 
+    def test_alerting_rules_carry_one_category_or_are_heartbeats(self):
+        for rule in load().rules:
+            if rule.level < 3:
+                continue
+            categories = [g for g in rule.groups if g in CATEGORIES]
+            with self.subTest(rule=rule.id):
+                self.assertTrue(len(categories) == 1 or "log_relay_heartbeat" in rule.groups)
+
+    def test_relay_heartbeat_alerts_without_category(self):
+        result = load().process('{"component": "log_relay", "status": "healthy", "queued": 0, "dropped": 0}')
+        self.assertEqual(result.rule.id, 100183)
+        self.assertIn("log_relay_heartbeat", result.rule.groups)
+
     def test_every_priority_category_has_an_alerting_rule(self):
         covered = {g for rule in load().rules if rule.level >= 3 for g in rule.groups}
         self.assertTrue(CATEGORIES <= covered, CATEGORIES - covered)

@@ -1,5 +1,6 @@
 <!--
-  Log Source Health from the TLS Log Relay. relay_health.py output is written
+  Log Source Health from the TLS Log Relay. Healthy reports raise a level 3
+  heartbeat (no category) so the Portal can tell a silent relay from a quiet one. relay_health.py output is written
   as one JSON line per minute and read by the Wazuh agent on the relay
   (log_format json), so it arrives here through the built-in JSON decoder.
 -->
@@ -9,6 +10,13 @@
     <decoded_as>json</decoded_as>
     <field name="component" type="pcre2">^log_relay$</field>
     <description>TLS Log Relay health report</description>
+  </rule>
+
+  <rule id="100183" level="3">
+    <if_sid>100180</if_sid>
+    <field name="status" type="pcre2">^healthy$</field>
+    <description>TLS Log Relay heartbeat</description>
+    <group>log_relay_heartbeat,</group>
   </rule>
 
   <rule id="100181" level="9">

@@ -68,7 +68,9 @@ def category(data):
     if not rule or int(rule.get("level", 0)) < 3:
         return None, rule
     found = [g for g in rule.get("groups", []) if g in CATEGORIES]
-    return (found[0] if len(found) == 1 else f"ambiguous:{found}"), rule
+    if len(found) > 1:
+        return f"ambiguous:{found}", rule
+    return (found[0] if found else None), rule
 
 
 def run(socket_path, fixtures):
