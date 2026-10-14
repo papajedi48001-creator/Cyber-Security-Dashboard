@@ -2,6 +2,7 @@
 
 Run: python3 -m unittest discover -s infrastructure/log-relay/tests
 """
+import json
 import pathlib
 import subprocess
 import sys
@@ -135,7 +136,9 @@ class HealthTests(unittest.TestCase):
                     input=stats, capture_output=True, text=True,
                 )
                 self.assertEqual(proc.returncode, code, proc.stderr)
-                self.assertIn('"status"', proc.stdout)
+                report = json.loads(proc.stdout)
+                self.assertEqual(report["component"], "log_relay")
+                self.assertIn("checked_at", report)
 
 
 if __name__ == "__main__":

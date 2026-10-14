@@ -1,0 +1,63 @@
+<!--
+  Sophos Firewall (SFOS) key="value" Syslog, received through the TLS Log Relay.
+  The parent matches any SFOS line; sibling child decoders each extract one
+  field so the order of keys in the log does not matter.
+  Verify against real hospital firewall logs with logtest_check.py.
+-->
+<decoder name="sophos-sfos">
+  <prematch type="pcre2">\blog_type="[^"]+"</prematch>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\blog_type="([^"]*)"</regex>
+  <order>log_type</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\blog_component="([^"]*)"</regex>
+  <order>log_component</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\blog_subtype="([^"]*)"</regex>
+  <order>log_subtype</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bstatus="([^"]*)"</regex>
+  <order>status</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bsrc_ip="?([0-9A-Fa-f:.]+)"?</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bdst_ip="?([0-9A-Fa-f:.]+)"?</regex>
+  <order>dstip</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bdst_port="?(\d+)"?</regex>
+  <order>dstport</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\buser_name="([^"]*)"</regex>
+  <order>srcuser</order>
+</decoder>
+
+<decoder name="sophos-sfos-fields">
+  <parent>sophos-sfos</parent>
+  <regex type="pcre2">\bmessage="([^"]*)"</regex>
+  <order>message</order>
+</decoder>

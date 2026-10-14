@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Report TLS Log Relay forwarding health from `syslog-ng-ctl stats` output.
 
-Exit codes: 0 healthy, 1 degraded, 2 failed, 3 unknown. Prints one JSON line,
-which a monitoring agent (or the Portal source-health check) can collect.
+Exit codes: 0 healthy, 1 degraded, 2 failed, 3 unknown. Prints one JSON line
+with "component": "log_relay"; a timer appends it to a file that the Wazuh
+agent on the relay reads (log_format json), which feeds rules 100180-100182.
 
 Usage: syslog-ng-ctl stats | relay_health.py --stats-file - [--queued-warn 1000]
 """
 import argparse
+import datetime
 import json
 import sys
 
@@ -49,6 +51,8 @@ def main(argv=None):
         with open(args.stats_file, encoding="utf-8") as handle:
             text = handle.read()
     result = evaluate(text, args.queued_warn)
+    result["component"] = "log_relay"
+    result["checked_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     print(json.dumps(result, sort_keys=True))
     return EXIT_CODES[result["status"]]
 

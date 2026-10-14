@@ -1,0 +1,34 @@
+{
+  "policy": {
+    "description": "Wazuh hot retention 90 days, then encrypted snapshot to the GDCC archive repository and delete. Snapshots are kept one year by the repository's own retention (see log-archive-runbook.md).",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {"state_name": "archive", "conditions": {"min_index_age": "90d"}}
+        ]
+      },
+      {
+        "name": "archive",
+        "actions": [
+          {"snapshot": {"repository": "gdcc-archive", "snapshot": "wazuh-archive"}}
+        ],
+        "transitions": [
+          {"state_name": "delete", "conditions": {"min_index_age": "91d"}}
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {"delete": {}}
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {"index_patterns": ["wazuh-alerts-*", "wazuh-archives-*"], "priority": 100}
+    ]
+  }
+}

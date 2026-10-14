@@ -1,0 +1,66 @@
+{
+  "_comment": "Synthetic Sophos SFOS events (documentation IP ranges, fake users). Field layout follows the SFOS key=value Syslog format; confirm against real logs from the hospital firewall before production.",
+  "events": [
+    {
+      "name": "firewall denied inbound RDP",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:00:00+0700\" log_id=010101600001 log_type=\"Firewall\" log_component=\"Firewall Rule\" log_subtype=\"Denied\" status=\"Deny\" fw_rule_id=\"0\" src_ip=\"203.0.113.50\" dst_ip=\"192.0.2.15\" dst_port=\"3389\" protocol=\"TCP\"",
+      "expect": "blocked_traffic"
+    },
+    {
+      "name": "webadmin login failure",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:01:00+0700\" log_id=062910617701 log_type=\"Event\" log_component=\"GUI\" log_subtype=\"Admin\" status=\"Failed\" user_name=\"testadmin\" src_ip=\"192.0.2.40\" message=\"User testadmin failed to login to Webadmin from 192.0.2.40 because of wrong credentials\"",
+      "expect": "admin_or_login_failure"
+    },
+    {
+      "name": "user portal authentication failure",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:02:00+0700\" log_id=062910617702 log_type=\"Event\" log_component=\"Authentication\" log_subtype=\"Authentication\" status=\"Failed\" user_name=\"testuser\" src_ip=\"192.0.2.41\" message=\"User testuser failed to login to Client Authentication\"",
+      "expect": "admin_or_login_failure"
+    },
+    {
+      "name": "firewall rule modified",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:03:00+0700\" log_id=062909617502 log_type=\"Event\" log_component=\"GUI\" log_subtype=\"Admin\" status=\"Successful\" user_name=\"testadmin\" src_ip=\"192.0.2.40\" message=\"Firewall Rule 'Allow HIS' was modified by 'testadmin' from '192.0.2.40' using 'GUI'\"",
+      "expect": "firewall_rule_change"
+    },
+    {
+      "name": "SSL VPN authentication failure",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:04:00+0700\" log_id=062910617703 log_type=\"Event\" log_component=\"SSL VPN\" log_subtype=\"Authentication\" status=\"Failed\" user_name=\"testvpn\" src_ip=\"203.0.113.77\" message=\"User testvpn failed to login to SSL VPN\"",
+      "expect": "vpn_anomaly"
+    },
+    {
+      "name": "IPsec tunnel failure",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:05:00+0700\" log_id=062908617704 log_type=\"Event\" log_component=\"IPSec\" log_subtype=\"System\" status=\"Failed\" message=\"IPSec connection 'GDCC' failed to establish\"",
+      "expect": "vpn_anomaly"
+    },
+    {
+      "name": "IPS drop",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:06:00+0700\" log_id=020804407002 log_type=\"IDP\" log_component=\"Signatures\" log_subtype=\"Drop\" src_ip=\"203.0.113.9\" dst_ip=\"192.0.2.15\" dst_port=\"445\" signature_msg=\"SMB exploit attempt (synthetic)\"",
+      "expect": "ips_av_web_event"
+    },
+    {
+      "name": "antivirus detection",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:07:00+0700\" log_id=030906208001 log_type=\"Anti-Virus\" log_component=\"HTTP\" log_subtype=\"Virus\" src_ip=\"192.0.2.60\" dst_ip=\"203.0.113.20\" virus=\"EICAR-AV-Test\"",
+      "expect": "ips_av_web_event"
+    },
+    {
+      "name": "web protection block",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:08:00+0700\" log_id=050901616001 log_type=\"Content Filtering\" log_component=\"HTTP\" log_subtype=\"Denied\" src_ip=\"192.0.2.61\" url=\"http://malware.example/\" category=\"Malware\"",
+      "expect": "ips_av_web_event"
+    },
+    {
+      "name": "normal allowed traffic",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:09:00+0700\" log_id=010101600001 log_type=\"Firewall\" log_component=\"Firewall Rule\" log_subtype=\"Allowed\" status=\"Allow\" fw_rule_id=\"5\" src_ip=\"192.0.2.15\" dst_ip=\"203.0.113.80\" dst_port=\"443\" protocol=\"TCP\"",
+      "expect": null
+    },
+    {
+      "name": "successful admin login",
+      "log": "device_name=\"SFW\" timestamp=\"2026-10-14T10:10:00+0700\" log_id=062910617701 log_type=\"Event\" log_component=\"GUI\" log_subtype=\"Admin\" status=\"Successful\" user_name=\"testadmin\" src_ip=\"192.0.2.40\" message=\"User testadmin logged in to Webadmin\"",
+      "expect": null
+    }
+  ],
+  "relay_health": [
+    {"name": "relay healthy", "log": {"component": "log_relay", "status": "healthy", "queued": 0, "dropped": 0}, "expect": null},
+    {"name": "relay buffering", "log": {"component": "log_relay", "status": "degraded", "queued": 5000, "dropped": 0}, "expect": "log_source_health"},
+    {"name": "relay dropping", "log": {"component": "log_relay", "status": "failed", "queued": 0, "dropped": 3}, "expect": "log_source_health"},
+    {"name": "relay missing destination", "log": {"component": "log_relay", "status": "unknown"}, "expect": "log_source_health"}
+  ]
+}
