@@ -15,6 +15,11 @@ export async function getSourceOverview(
   now = new Date(),
 ): Promise<SourceOverview> {
   requirePermission(actor, "source.read");
+  return loadSourceOverview(db, pollIntervalSeconds, now);
+}
+
+/** Unchecked; callers decide what of it a role may see. */
+export async function loadSourceOverview(db: PrismaClient, pollIntervalSeconds: number, now = new Date()): Promise<SourceOverview> {
   const state = await db.connectorState.findUnique({ where: { name: CONNECTOR_NAME } });
   const connector = {
     lastSuccessAt: state?.lastSuccessAt ?? null,

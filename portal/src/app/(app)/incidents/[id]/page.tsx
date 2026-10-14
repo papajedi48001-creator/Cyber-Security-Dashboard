@@ -173,14 +173,20 @@ export default async function IncidentPage({
             อ้างอิง: {evidence.reference} — ส่งโดย {name(evidence.submittedById)} เมื่อ {formatBangkok(evidence.submittedAt)}
           </p>
           {can(user, "incident.review") && user.id !== evidence.submittedById && !isOwner ? (
-            <form className="stack" action={incidentAction}>
-              {hidden("review")}
-              <label>บันทึกการตรวจ (จำเป็นเมื่อส่งกลับ)<textarea name="note" /></label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" name="decision" value="approve">อนุมัติปิด</button>
-                <button className="secondary" type="submit" name="decision" value="reject">ส่งกลับ</button>
-              </div>
-            </form>
+            <div style={{ display: "grid", gap: 16 }}>
+              <form className="stack" action={incidentAction}>
+                {hidden("review")}
+                <input type="hidden" name="decision" value="approve" />
+                <label>บันทึกการอนุมัติ (ถ้ามี)<textarea name="note" /></label>
+                <button type="submit">อนุมัติปิด</button>
+              </form>
+              <form className="stack" action={incidentAction}>
+                {hidden("review")}
+                <input type="hidden" name="decision" value="reject" />
+                <label>เหตุผลที่ส่งกลับ<textarea name="note" required /></label>
+                <button className="secondary" type="submit">ส่งกลับไปตรวจสอบ</button>
+              </form>
+            </div>
           ) : (
             <p className="muted">รอผู้ตรวจที่ไม่ใช่ผู้รับผิดชอบหรือผู้ส่งหลักฐาน</p>
           )}
