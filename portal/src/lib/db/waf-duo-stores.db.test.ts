@@ -44,5 +44,7 @@ describe.skipIf(!testDatabaseUrl)("WAF and Duo stores (MariaDB)", () => {
     );
     const status = await service.getStatus(admin);
     expect(status.last).toMatchObject({ checkedByName: "admin", issuesFound: false });
+    // A newer check here would hide the one the e2e run records.
+    await prisma.duoManualCheck.deleteMany({ where: { checkedById: "admin" } });
   });
 });

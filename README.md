@@ -20,6 +20,10 @@
 | [Design spec](docs/superpowers/specs/2026-10-08-waritchaphum-cyber-security-dashboard-design.md) | สถาปัตยกรรม, data policy, workflow, SLA, ขั้นตอนย้ายระบบ |
 | [docs/adr/](docs/adr/) | บันทึกการตัดสินใจทางสถาปัตยกรรม |
 | [Delivery roadmap](docs/superpowers/plans/2026-10-08-security-operations-delivery-roadmap.md) | ลำดับแผนงานและเงื่อนไขผ่านแต่ละขั้น |
+| [Portal Integration UAT](docs/operations/portal-integration-uat.md) | ผลทดสอบการเชื่อมต่อ Portal และรายการ UAT ร่วมกับโรงพยาบาล |
+| [Notification runbook](docs/operations/notification-runbook.md) | ตั้งค่าและรับมือการแจ้งเตือน Email / LINE OA ที่ส่งไม่สำเร็จ |
+| [Backup Evidence runbook](docs/operations/backup-evidence-runbook.md) | บันทึกผล backup และผลทดสอบกู้คืน |
+| [Duo Manual Check runbook](docs/operations/duo-manual-check-runbook.md) | ขั้นตอนตรวจ Duo ด้วยมือรายวัน |
 
 ## โครงสร้างที่วางแผนไว้
 
@@ -37,7 +41,7 @@ Portal มี 2 process ที่ใช้ฐานข้อมูลเดี�
 cd portal
 npm ci && npx prisma migrate deploy
 npm run build && npm start   # หน้าเว็บ
-npm run worker               # ดึง alert จาก Wazuh, เปิด incident, ตรวจแหล่ง Log ขาดหาย, ส่งแจ้งเตือน
+npm run worker               # ดึง alert จาก Wazuh, เปิด incident, ตรวจแหล่ง Log ขาดหาย, พอร์ต, Cloudflare WAF (ถ้าตั้งค่า), ส่งแจ้งเตือน
 ```
 
 แจ้งเตือนส่งทาง Email (SMTP) และ/หรือ LINE OA โดยมีเฉพาะระดับ, เลข incident, เวลาที่ตรวจพบ, ชื่อระบบ และลิงก์ Portal
