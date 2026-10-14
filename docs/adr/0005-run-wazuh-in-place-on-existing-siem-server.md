@@ -1,6 +1,6 @@
 # Run Wazuh in place on the existing SIEM server
 
-- Status: Accepted (FortiSIEM evidence handling pending hospital confirmation)
+- Status: Superseded by [0008](./0008-run-wazuh-on-a-dedicated-vm.md)
 - Date: 2026-10-14
 
 Wazuh all-in-one will be installed on the existing FortiSIEM server hardware, replacing FortiSIEM on that machine, instead of being validated on separate temporary capacity first. The hospital has no separate validation hardware, and the existing server is the capacity it already owns.

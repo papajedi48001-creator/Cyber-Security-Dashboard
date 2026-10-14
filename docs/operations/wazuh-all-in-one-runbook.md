@@ -1,15 +1,15 @@
 # Wazuh All-in-One Runbook
 
-ติดตั้ง Wazuh server, indexer และ dashboard บน Existing SIEM Server (ADR 0005) ไฟล์ config อยู่ใน `infrastructure/wazuh/`
+ติดตั้ง Wazuh server, indexer และ dashboard บน Wazuh VM ที่สร้างใหม่ (ADR 0008) ไฟล์ config อยู่ใน `infrastructure/wazuh/` ห้ามแตะเครื่อง FortiSIEM
 
 ## เงื่อนไขก่อนเริ่ม
 
-ห้ามเริ่มจนกว่าจะครบทุกข้อใน [Go/No-Go](./fortisiem-acceptance-record.md#go-no-go) โดยเฉพาะ: image FortiSIEM กู้คืนได้แล้ว, capacity ผ่าน, Log Relay รับ Sophos และ buffer อยู่ และมีผู้อนุมัติการ rebuild
+ห้ามเริ่มจนกว่าจะครบทุกข้อใน [Go/No-Go](./fortisiem-acceptance-record.md#go-no-go) โดยเฉพาะ: capacity ของ Wazuh VM ผ่าน, Log Relay ติดตั้งและผ่าน test แล้ว และมีผู้อนุมัติการสร้าง Wazuh VM
 
 ## ขั้นตอน
 
-1. **บันทึกเวลาเริ่ม** ลงใน [sophos-cutover-record.md](./sophos-cutover-record.md) (เริ่มช่วงที่ log ไม่เข้า SIEM)
-2. **ปิด FortiSIEM** และติดตั้งระบบปฏิบัติการใหม่ที่ Wazuh รองรับ (ดูรายการ OS ในเอกสารทางการของรุ่นที่จะใช้)
+1. **สร้าง Wazuh VM** ตามขนาดใน [siem-capacity-baseline.md](./siem-capacity-baseline.md) แล้วติดตั้งระบบปฏิบัติการที่ Wazuh รองรับ (ดูรายการ OS ในเอกสารทางการของรุ่นที่จะใช้)
+2. **บันทึกชื่อและขนาด VM** ใน `inventory.yml` (ไฟล์จริงไม่ commit)
 3. **ติดตั้ง Wazuh all-in-one** ด้วยสคริปต์ติดตั้งทางการ (`wazuh-install.sh -a`) จดรุ่นที่ติดตั้งใน `inventory.yml` เก็บรหัสผ่านที่สคริปต์สร้างเข้า secrets vault ทันที แล้วลบไฟล์ `wazuh-install-files.tar` ออกจากเครื่อง
 4. **จำกัดการเข้าถึง**: เปิด dashboard (443) และ indexer API (9200) เฉพาะจาก Management VLAN/VPN และ Portal Application Server, เปิด 514/tcp เฉพาะจาก relay
 5. **ติดตั้ง ruleset**:
@@ -26,9 +26,9 @@
    - role `portal_alerts_read`: index pattern `wazuh-alerts-*`, สิทธิ์ `read` และ `search` เท่านั้น, ไม่มี cluster permission เกินจำเป็น
    - user `svc-portal` ผูกกับ role นี้ เก็บรหัสผ่านใน vault บันทึกวันหมุนรหัส
    - ทดสอบว่า user นี้อ่าน `wazuh-archives-*` และเขียน index ใด ๆ ไม่ได้
-10. **ชี้ relay มาที่ Wazuh** และตรวจว่า buffer ที่ค้างระหว่าง rebuild ถูกส่งเข้ามาครบ (relay health กลับเป็น healthy)
-11. **ตรวจ capacity** ตาม [wazuh-capacity-check.md](./wazuh-capacity-check.md)
-12. **บันทึกเวลาสิ้นสุด** ของช่วงที่ log ขาดหายลงใน cutover record
+10. **ชี้ relay มาที่ Wazuh** แล้วทดสอบด้วย event จำลอง relay health ต้องเป็น healthy
+11. **เพิ่มปลายทาง Syslog ที่สองใน Sophos** ไปที่ relay (ต้องได้รับอนุมัติก่อน) ห้ามแก้หรือลบปลายทางเดิมที่ส่งไป FortiSIEM บันทึกเวลาที่ Wazuh เริ่มได้รับ log ลงใน [sophos-cutover-record.md](./sophos-cutover-record.md)
+12. **ตรวจ capacity** ตาม [wazuh-capacity-check.md](./wazuh-capacity-check.md)
 
 ## Shared SIEM Operations
 
@@ -37,4 +37,4 @@
 
 ## Rollback
 
-ถ้า Wazuh ไม่ผ่าน acceptance: กู้คืน image FortiSIEM ตาม [fortisiem-evidence-export-record.md](./fortisiem-evidence-export-record.md) แล้วชี้ relay กลับไปที่ FortiSIEM ตาม [log-relay-runbook.md](./log-relay-runbook.md#rollback)
+ถ้า Wazuh ไม่ผ่าน acceptance: ลบปลายทาง Syslog ที่สองออกจาก Sophos ตาม [log-relay-runbook.md](./log-relay-runbook.md#rollback) FortiSIEM ยังรับ log ตามเดิม ไม่ต้องกู้คืนอะไร

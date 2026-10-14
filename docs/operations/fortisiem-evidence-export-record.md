@@ -1,6 +1,6 @@
 # FortiSIEM Evidence Export Record
 
-บันทึกการสร้าง Legacy SIEM Evidence Store ก่อน rebuild เครื่อง (ADR 0005) ห้ามบันทึกกุญแจหรือ password ให้อ้างอิงตำแหน่งใน vault
+ใช้เฉพาะเมื่อโรงพยาบาลตัดสินใจปลด FortiSIEM ในภายหลัง ไม่ใช่เงื่อนไขก่อนติดตั้ง Wazuh (ADR 0008) บันทึกการสร้าง Legacy SIEM Evidence Store ก่อนปลดเครื่อง ห้ามบันทึกกุญแจหรือ password ให้อ้างอิงตำแหน่งใน vault
 
 ## E1. รายการที่ export
 
@@ -23,7 +23,7 @@
 
 ## E3. ทดสอบกู้คืน image
 
-ต้องผ่านก่อน rebuild เพราะ image นี้คือทางย้อนกลับ
+ต้องผ่านก่อนปลด FortiSIEM เพราะ image นี้คือทางย้อนกลับ
 
 | รายการ | ค่า |
 |---|---|

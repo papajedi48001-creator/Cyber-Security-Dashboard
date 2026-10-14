@@ -19,7 +19,7 @@ Backup ทั้งหมดเข้ารหัสก่อนส่ง GDCC �
 ## ลำดับการกู้คืน
 
 1. บันทึกเวลาเริ่ม และแจ้งทีมว่า SIEM หยุด (เฝ้าระวังด้วย Sophos dashboard ชั่วคราว)
-2. เตรียมเครื่อง (เครื่องเดิมหรือเครื่องสำรอง) ติดตั้ง OS และ Wazuh รุ่นเดียวกับที่บันทึกใน inventory
+2. เตรียม VM (Wazuh VM เดิมหรือ VM ใหม่) ติดตั้ง OS และ Wazuh รุ่นเดียวกับที่บันทึกใน inventory
 3. ผู้ถือกุญแจสองคนร่วมกันถอดรหัส backup ตามขั้นตอน Dual-Control Key Recovery
 4. คืน certificate และ keystore แล้ว config ของ manager
 5. คืน security config ของ indexer ด้วย `securityadmin.sh`
@@ -40,4 +40,4 @@ Backup ทั้งหมดเข้ารหัสก่อนส่ง GDCC �
 
 ## Rollback ไป FortiSIEM
 
-ใช้ได้จนกว่าโรงพยาบาลจะยอมรับ Wazuh เป็น SIEM หลัก: กู้ image ตาม [fortisiem-evidence-export-record.md](./fortisiem-evidence-export-record.md) แล้วชี้ relay กลับตาม [log-relay-runbook.md](./log-relay-runbook.md#rollback)
+FortiSIEM ยังทำงานและรับ log ตามเดิม (ADR 0008) ถ้าต้องกลับไปใช้ FortiSIEM อย่างเดียว ให้ลบปลายทาง Syslog ที่สองออกจาก Sophos ตาม [log-relay-runbook.md](./log-relay-runbook.md#rollback) ไม่ต้องกู้คืน image
