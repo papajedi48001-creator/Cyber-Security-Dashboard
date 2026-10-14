@@ -11,15 +11,17 @@ export type Permission =
   | "user.manage"
   | "config.manage"
   | "audit.read"
-  | "executive.read";
+  | "executive.read"
+  | "backup.record";
 
 const PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   SECURITY_ADMINISTRATOR: new Set<Permission>([
     "incident.read", "incident.write", "incident.review", "evidence.read", "asset.read", "asset.write",
-    "source.read", "user.manage", "config.manage", "audit.read", "executive.read",
+    "source.read", "user.manage", "config.manage", "audit.read", "executive.read", "backup.record",
   ]),
   SECURITY_OPERATOR: new Set<Permission>([
     "incident.read", "incident.write", "incident.review", "evidence.read", "asset.read", "source.read", "executive.read",
+    "backup.record",
   ]),
   EXECUTIVE_VIEWER: new Set<Permission>(["executive.read"]),
 };

@@ -9,8 +9,9 @@ const SEVERITY_NAMES = { P1: "วิกฤต", P2: "สูง", P3: "ปาน�
 
 // Counts only: Executive Viewers never see incident titles, systems, addresses or people.
 export default async function ExecutivePage() {
-  await requirePageSession("executive.read");
-  const { config } = getServices();
+  const session = await requirePageSession("executive.read");
+  const { config, backups } = getServices();
+  const backup = await backups.backupSummary(session.user);
   const now = new Date();
   const sources = await loadSourceOverview(prisma, config.wazuh.pollIntervalSeconds, now);
   const s = await loadSummary(prisma, sources.sources.map(({ status }) => ({ status })), now);
@@ -55,6 +56,11 @@ export default async function ExecutivePage() {
         <p>
           การแจ้งเตือนที่ส่งไม่สำเร็จ:{" "}
           <span className={s.notificationFailures ? "state-bad" : "state-ok"}>{s.notificationFailures}</span>
+        </p>
+        <p>
+          งาน backup ที่ติดตาม {backup.jobs} งาน: ปกติ {backup.ok}, ต้องตรวจสอบ{" "}
+          <span className={backup.needsAttention ? "state-bad" : undefined}>{backup.needsAttention}</span>, ยืนยันกู้คืนได้{" "}
+          <span className={backup.recoveryVerified < backup.jobs ? "state-warn" : "state-ok"}>{backup.recoveryVerified}</span>
         </p>
         <p className="muted">ข้อมูลที่ขาดหายหรือไม่ทราบสถานะไม่ได้หมายความว่าปลอดภัย</p>
       </div>

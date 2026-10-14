@@ -11,13 +11,16 @@ import { getSourceOverview } from "@/lib/sources";
 
 export default async function OverviewPage() {
   const session = await requirePageSession("incident.read");
-  const { config, incidents, notifier } = getServices();
+  const { config, incidents, notifier, backups } = getServices();
   const now = new Date();
-  const [open, sources, failures] = await Promise.all([
+  const [open, sources, failures, backupStatus] = await Promise.all([
     incidents.listIncidents(session.user, { view: "open" }),
     getSourceOverview(prisma, session.user, config.wazuh.pollIntervalSeconds, now),
     notifier.openFailures(),
+    backups.listBackupStatus(session.user),
   ]);
+  const backupProblems = backupStatus.filter((b) => b.health !== "ok");
+  const unverified = backupStatus.filter((b) => b.recovery !== "verified").length;
   const summary = await loadSummary(prisma, sources.sources, now);
   const attention = open.filter((i) => ["breached", "due_soon"].includes(slaState(i, now)));
   const unhealthy = sources.sources.filter((s) => s.status !== "healthy");
@@ -77,6 +80,25 @@ export default async function OverviewPage() {
           </ul>
         )}
         <Link href="/sources">ดูทั้งหมด</Link>
+      </div>
+
+      <div className="card">
+        <h2>Backup</h2>
+        {backupStatus.length === 0 ? (
+          <p className="state-warn">ยังไม่มีงาน backup ที่ติดตาม</p>
+        ) : backupProblems.length === 0 ? (
+          <p className="state-ok">ทุกงานสำรองตามรอบ</p>
+        ) : (
+          <ul>
+            {backupProblems.map((b) => (
+              <li key={b.job.id} className="state-bad">
+                {b.job.name}: {b.health === "unknown" ? "ไม่มีข้อมูล" : b.health === "failing" ? `ล้มเหลว ${b.consecutiveFailures} ครั้งติดกัน` : b.health === "stale" ? "ขาดรอบ" : "ไม่ได้เข้ารหัส"}
+              </li>
+            ))}
+          </ul>
+        )}
+        {unverified > 0 && <p className="state-warn">ยังไม่ยืนยันการกู้คืน {unverified} งาน</p>}
+        <Link href="/backups">ดูทั้งหมด</Link>
       </div>
 
       <div className="card">

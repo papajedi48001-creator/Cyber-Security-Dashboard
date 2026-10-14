@@ -220,6 +220,60 @@ model NotificationDelivery {
   @@index([status, nextAttemptAt])
 }
 
+enum BackupResult {
+  SUCCESS
+  FAILED
+}
+
+enum RestoreResult {
+  PASSED
+  FAILED
+}
+
+// Backup Evidence is read-only reporting: no model here can start, restore or
+// delete a backup (spec "Backup and disaster recovery").
+model BackupJob {
+  id                    String   @id @default(cuid())
+  name                  String   @unique @db.VarChar(128)
+  assetName             String?  @db.VarChar(128)
+  expectedIntervalHours Int
+  destination           String   @db.VarChar(128)
+  createdAt             DateTime @default(now())
+
+  evidence      BackupEvidence[]
+  verifications RestoreVerification[]
+}
+
+model BackupEvidence {
+  id             String       @id @default(cuid())
+  jobId          String
+  result         BackupResult
+  completedAt    DateTime
+  sizeBytes      BigInt?
+  encrypted      Boolean
+  retentionUntil DateTime?
+  recordedById   String       @db.VarChar(64)
+  recordedAt     DateTime     @default(now())
+
+  job BackupJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@index([jobId, completedAt])
+}
+
+model RestoreVerification {
+  id           String        @id @default(cuid())
+  jobId        String
+  testedAt     DateTime
+  result       RestoreResult
+  reference    String        @db.VarChar(500)
+  verifiedById String        @db.VarChar(64)
+  recordedAt   DateTime      @default(now())
+
+  job BackupJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@index([jobId, testedAt])
+}
+
 // Append-only: a database trigger (see migration) rejects UPDATE and DELETE.
 model AuditRecord {
   id            String   @id @default(cuid())

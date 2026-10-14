@@ -6,6 +6,8 @@ import { loadConfig, type PortalConfig } from "../config";
 import { prisma } from "../db/client";
 import { PrismaAssetStore } from "../db/asset-store";
 import { PrismaAuditStore } from "../db/audit-store";
+import { PrismaBackupStore } from "../db/backup-store";
+import { createBackupService, type BackupService } from "../backups/service";
 import { PrismaDeliveryStore } from "../db/delivery-store";
 import { PrismaIncidentStore } from "../db/incident-store";
 import { createIncidentService, type IncidentService } from "../incidents/service";
@@ -20,6 +22,7 @@ export interface Services {
   assets: AssetService;
   incidents: IncidentService;
   notifier: Notifier;
+  backups: BackupService;
 }
 
 let services: Services | undefined;
@@ -50,6 +53,7 @@ export function getServices(): Services {
     assets: createAssetService({ store: new PrismaAssetStore(prisma), audit }),
     incidents: createIncidentService({ store: new PrismaIncidentStore(prisma), audit, notify: notifier.enqueue }),
     notifier,
+    backups: createBackupService({ store: new PrismaBackupStore(prisma), audit }),
   };
   return services;
 }
