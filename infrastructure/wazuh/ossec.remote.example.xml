@@ -1,0 +1,32 @@
+<!--
+  Fragment for /var/ossec/etc/ossec.conf on the Wazuh server.
+  Accept Syslog only from the TLS Log Relay, keep every event for forensic
+  search (archives), and load the custom ruleset.
+-->
+<ossec_config>
+  <global>
+    <logall_json>yes</logall_json>
+  </global>
+
+  <remote>
+    <connection>syslog</connection>
+    <port>514</port>
+    <protocol>tcp</protocol>
+    <allowed-ips>192.0.2.10</allowed-ips>
+    <local_ip>192.0.2.20</local_ip>
+  </remote>
+
+  <ruleset>
+    <decoder_dir>etc/decoders</decoder_dir>
+    <rule_dir>etc/rules</rule_dir>
+  </ruleset>
+</ossec_config>
+
+<!--
+  Fragment for the Wazuh agent on the TLS Log Relay (/var/ossec/etc/ossec.conf):
+
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/relay-health.json</location>
+  </localfile>
+-->

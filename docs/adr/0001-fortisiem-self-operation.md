@@ -1,5 +1,8 @@
 # Operate the existing FortiSIEM in-house after INET service ends
 
+- Status: Superseded by [0002](./0002-migrate-to-open-source-siem.md) and [0005](./0005-run-wazuh-in-place-on-existing-siem-server.md)
+- Date: 2026-10-08
+
 The hospital will retain and operate the existing FortiSIEM server itself after INET SIEM service ends, rather than replacing the SIEM immediately or retaining managed operation. This preserves existing detection and log history while requiring a complete SIEM Handover Package and verified handover before service transition.
 
 ## Considered Options

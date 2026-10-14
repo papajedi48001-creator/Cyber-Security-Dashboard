@@ -1,5 +1,8 @@
 # Migrate the existing SIEM hardware to an in-house open source SIEM
 
+- Status: Accepted, amended by [0005](./0005-run-wazuh-in-place-on-existing-siem-server.md)
+- Date: 2026-10-08
+
 After completing the FortiSIEM handover acceptance test and preserving required configuration and log evidence, the hospital will build an open source SIEM on the existing server hardware. This gives the hospital independent control of security monitoring and avoids relying on future INET SIEM service or FortiSIEM licensing.
 
 ## Considered Options

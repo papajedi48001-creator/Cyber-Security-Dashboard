@@ -1,0 +1,57 @@
+import type { PrismaClient } from "@prisma/client";
+import { requirePermission, type Principal } from "./auth/authorize";
+import { connectorFreshness, evaluateSourceHealth, findSilentSources, type SilentSource, type SourceHealth } from "./source-health";
+import { CONNECTOR_NAME } from "./wazuh/poller";
+
+export interface SourceOverview {
+  connector: ReturnType<typeof connectorFreshness> & { lastSuccessAt: Date | null };
+  sources: (SourceHealth & { type: string; expectedIntervalMinutes: number; assetName: string | null })[];
+}
+
+export async function getSourceOverview(
+  db: PrismaClient,
+  actor: Principal,
+  pollIntervalSeconds: number,
+  now = new Date(),
+): Promise<SourceOverview> {
+  requirePermission(actor, "source.read");
+  return loadSourceOverview(db, pollIntervalSeconds, now);
+}
+
+/** Unchecked; callers decide what of it a role may see. */
+export async function loadSourceOverview(db: PrismaClient, pollIntervalSeconds: number, now = new Date()): Promise<SourceOverview> {
+  const state = await db.connectorState.findUnique({ where: { name: CONNECTOR_NAME } });
+  const connector = {
+    lastSuccessAt: state?.lastSuccessAt ?? null,
+    lastAttemptAt: state?.lastAttemptAt ?? null,
+    lastError: state?.lastError ?? null,
+  };
+  const rows = await db.logSource.findMany({ include: { asset: { select: { name: true } } }, orderBy: { name: "asc" } });
+  return {
+    connector: { ...connectorFreshness(connector, now, pollIntervalSeconds), lastSuccessAt: connector.lastSuccessAt },
+    sources: rows.map((row) => ({
+      ...evaluateSourceHealth(row, now, connector, pollIntervalSeconds),
+      type: row.type,
+      expectedIntervalMinutes: row.expectedIntervalMinutes,
+      assetName: row.asset?.name ?? null,
+    })),
+  };
+}
+
+/** For the worker: sources that should have a source-health incident. */
+export async function silentSources(db: PrismaClient, pollIntervalSeconds: number, now = new Date()): Promise<SilentSource[]> {
+  const state = await db.connectorState.findUnique({ where: { name: CONNECTOR_NAME } });
+  const connector = {
+    lastSuccessAt: state?.lastSuccessAt ?? null,
+    lastAttemptAt: state?.lastAttemptAt ?? null,
+    lastError: state?.lastError ?? null,
+  };
+  const rows = await db.logSource.findMany({ include: { asset: { select: { critical: true } } } });
+  return findSilentSources(
+    rows.map((r) => ({ ...r, critical: r.asset?.critical ?? false })),
+    connector,
+    CONNECTOR_NAME,
+    now,
+    pollIntervalSeconds,
+  );
+}

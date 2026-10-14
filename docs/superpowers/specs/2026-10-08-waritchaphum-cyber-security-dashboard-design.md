@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Create a daily security-operations capability for Hospital Waritchaphum. The system gives the IT team one controlled workspace for monitoring, triage, incident handling, audit evidence, backup evidence, and executive reporting without treating it as a full SOC. It preserves the existing FortiSIEM during transition, then establishes an in-house open-source SIEM independent of INET service.
+Create a daily security-operations capability for Hospital Waritchaphum. The system gives the IT team one controlled workspace for monitoring, triage, incident handling, audit evidence, backup evidence, and executive reporting without treating it as a full SOC. It exports and preserves the existing FortiSIEM evidence, then rebuilds the existing SIEM server as an in-house Wazuh SIEM independent of INET service (ADR 0005).
 
 ## Confirmed goals
 
@@ -22,13 +22,13 @@ The initial scope includes a separate Portal, a Portal database, a TLS Log Relay
 ## Architecture
 
 ```text
-Sophos Firewall -- TLS Syslog --> Log Relay --> Wazuh All-in-One
+Sophos Firewall -- TLS Syslog --> Log Relay --> Wazuh All-in-One (existing SIEM server)
                                                 |\
                                                 | \-- forensic investigation and raw logs
                                                 |
-                                                \---- read-only alert integration
+                                                \---- Portal pulls alert summaries (read-only)
                                                            |
-Cloudflare Free / Duo / GDCC Backup -----------------------+
+Cloudflare Free / Duo / GDCC Backup / External Scan ------+
                                                            v
                                              Security Operations Portal
                                              - incident workflow and audit trail
@@ -48,7 +48,8 @@ Cloudflare Free / Duo / GDCC Backup -----------------------+
 |---|---|---|
 | Sophos Firewall | Generates traffic, security, administrator, VPN, IPS/AV, and web-protection events | Does not decide incidents in the Portal |
 | TLS Log Relay | Authenticates allowed sources, terminates or preserves TLS as designed, buffers events, and forwards to Wazuh | Does not analyze, store long-term, or close incidents |
-| Wazuh all-in-one | Parses and detects security signals, stores raw/security data, supports forensic investigation | Does not own hospital incident workflow or backup-file lifecycle |
+| Wazuh all-in-one | Runs on the existing SIEM server; parses and detects security signals, stores raw/security data, supports forensic investigation | Does not own hospital incident workflow or backup-file lifecycle; holds no Portal credentials |
+| External Exposure Scan | Scans hospital-owned public addresses from outside on an approved schedule | Scans nothing internal; reports summaries only |
 | Security Operations Portal | Owns operations workflow, incident records, audit evidence, cross-service summaries, notification delivery state, and executive reporting | Does not store a second raw-log repository |
 | Portal MariaDB | Stores Portal-only operational records | Is separate from HOSxP and Wazuh Indexer |
 | GDCC | Receives encrypted backup artifacts | Does not host production Portal or SIEM runtime in this phase |
@@ -56,7 +57,8 @@ Cloudflare Free / Duo / GDCC Backup -----------------------+
 ## Network and access controls
 
 - All Portal and Wazuh access is limited to the Management VLAN or a VPN that enforces MFA.
-- The Portal Application Server is a separate VM or server from the Wazuh all-in-one host.
+- The Portal Application Server and the TLS Log Relay are separate VMs or servers from the Wazuh all-in-one host, so the relay can buffer while Wazuh is down.
+- The Portal reads Wazuh by querying the Wazuh Indexer with a read-only Wazuh Service Account (ADR 0006); Wazuh does not call the Portal.
 - Sophos sends TLS Syslog only to the Log Relay; the relay allowlists authorized source addresses and retains a bounded buffer for Wazuh maintenance or outage.
 - Portal connectors use dedicated read-only service accounts. Credentials are stored in a secrets mechanism, are rotatable, and are never embedded in source code, export files, URLs, or notifications.
 - The Portal begins with local accounts and MFA for Security Administrators and Security Operators. It has a defined identity transition to AD/LDAP once stable.
@@ -66,7 +68,8 @@ Cloudflare Free / Duo / GDCC Backup -----------------------+
 
 - Operational Security Data contains only technical information necessary to operate and investigate security events. Patient data is not collected or displayed.
 - Hot Log is queryable in Wazuh for 90 days.
-- Log Archive is encrypted and retained for one year.
+- Log Archive is encrypted and retained for one year. Indexer data older than 90 days is snapshotted, encrypted, and moved to GDCC by an index lifecycle policy; restoring it into a separate index is a documented runbook step.
+- The Legacy SIEM Evidence Store (FortiSIEM exports and image) is encrypted, stored off the existing SIEM server, and kept until its own retention period ends.
 - The Portal stores only incidents, asset metadata, audit evidence, integration state, and summarized operational data. It never replicates raw Wazuh events as a long-term log store.
 - Backup Job Success means that a backup job completed according to the backup system; it does not prove restorability. Until a restore test is available, the Portal marks recovery verification as unconfirmed.
 
@@ -80,7 +83,7 @@ The first detection set covers blocked traffic, administrator and login failures
 
 The Portal keeps two separate control families:
 
-1. External Port Exposure identifies internal services reachable from the internet, including risky ports such as SSH, RDP, database services, and any service not explicitly approved.
+1. External Port Exposure identifies internal services reachable from the internet, including risky ports such as SSH, RDP, database services, and any service not explicitly approved. It is determined from a scheduled External Exposure Scan plus the Sophos NAT and WAN-facing rule configuration, compared with the Approved Exposure list (ADR 0007), not from traffic logs alone.
 2. Restricted Egress Violation identifies internal systems that initiate traffic to prohibited ports or destinations.
 
 Each finding has independent rules, severity, allowlists, evidence, owner, and closure criteria.
@@ -119,6 +122,8 @@ Security Event -> assessment and severity -> Security Incident
 | P3 Medium | Working hours | 4 working hours | Not required |
 | P4 Low | Working hours | Next working day | Not required |
 
+Working hours, the public-holiday calendar, and the timezone used for SLA calculation must be confirmed by the hospital before the SLA module is built. Until then the Portal uses Monday–Friday 08:30–16:30 Asia/Bangkok with no holidays as a placeholder.
+
 ### Notifications
 
 Email and LINE OA receive only a Notification Summary: severity, incident number, detection time, affected system name, and Portal link. No raw logs, internal IP addresses, usernames, detailed vulnerabilities, or patient data are sent through LINE. Delivery failures are recorded in the Portal and follow escalation rules.
@@ -147,26 +152,32 @@ Wazuh all-in-one and required Portal components must be recoverable within 24 ho
 | Security Operator | Triage, owns, investigates, mitigates, and records incidents with MFA |
 | Executive Viewer | Reads redacted executive reporting only |
 
+Incident Reviewer is a duty, not a separate role: any Security Administrator, or a Security Operator other than the one who submitted the Closure Evidence, may review a P1/P2 closure. The hospital must confirm this rule before UAT. Backup Operator is a future role for Backup File Management and is not built in this phase.
+
 Shared SIEM Operations means the hospital IT team shares Wazuh operations. Despite no single SIEM owner, named accounts and complete access/change audit records remain mandatory.
 
 ## Migration from FortiSIEM
 
+Wazuh is installed in place on the existing SIEM server (ADR 0005). There is no parallel run of old and new SIEM.
+
 1. Obtain the SIEM Handover Package from INET: credentials, topology, inventory, VM/storage details, sources, rules/parsers/reports, backup and restore runbooks, upgrade instructions, and prior evidence.
-2. Execute the SIEM Handover Acceptance Test: login, Sophos ingestion, representative detection, read-only Dashboard integration, backup/restore, and notifications.
-3. Preserve required reports and evidence. Retain FortiSIEM as a Legacy SIEM Evidence Store in read-only state for the approved retention period.
-4. Measure existing hardware CPU, RAM, disk, available storage, real Sophos event volume, Log Relay throughput, and network/certificate requirements.
-5. Build the independent Wazuh all-in-one, TLS Log Relay, Portal Application Server, and dedicated Portal MariaDB service.
-6. Run a parallel validation only on separate temporary capacity; do not run old and new SIEM production workloads together on the same host without evidence of sufficient capacity.
-7. Compare log arrival, critical detections, alert quality, source health, and notification outcomes.
-8. Cut Sophos over to the new TLS Log Relay after acceptance. Stabilize with capacity and alert-quality monitoring.
-9. Decommission FortiSIEM only after the evidence-retention period ends and formal approval confirms no legal, operational, or investigation hold remains.
+2. Execute the SIEM Handover Acceptance Test: login, Sophos ingestion, representative detection, evidence export, and backup/restore.
+3. Measure the existing server: CPU, RAM, disk, available storage, real Sophos event volume, and projected 90-day storage. Stop if it is below the Wazuh all-in-one minimum until hardware is added.
+4. Export the Legacy SIEM Evidence Store (reports, rules, parsers, configuration, logs within retention) and take a full FortiSIEM image or backup to encrypted storage off the server. Verify the image restores before continuing; this is the rollback path.
+5. Build the TLS Log Relay on its own VM, point Sophos at it, and have it forward to FortiSIEM until the rebuild, so Sophos events are buffered from the moment FortiSIEM stops.
+6. Rebuild the existing server as Wazuh all-in-one, configure decoders and rules for Sophos Priority Signals, and connect the relay.
+7. Validate with synthetic events and the buffered Sophos stream: log arrival, critical detections, alert quality, source health, and dropped events. Record the logging gap between FortiSIEM shutdown and Wazuh acceptance.
+8. Accept the cutover, or roll back by restoring the FortiSIEM image and pointing the relay back to it.
+9. Build the Portal Application Server and Portal MariaDB separately (ADR 0004).
+10. Destroy the Legacy SIEM Evidence Store only after its retention period ends and formal approval confirms no legal, operational, or investigation hold remains.
 
 ## Cutover acceptance criteria
 
 - Sophos TLS Syslog reaches the Log Relay and Wazuh consistently.
 - Wazuh detects agreed Sophos Priority Signals.
 - Source Health identifies a missing source according to defined thresholds.
-- Portal consumes Wazuh alert summaries through read-only access and creates an auditable incident.
+- Portal pulls Wazuh alert summaries through the read-only Wazuh Service Account and creates an auditable incident.
+- The FortiSIEM image restore has been verified and the logging gap during the rebuild is recorded.
 - Email and LINE OA deliver redacted Notification Summaries.
 - Wazuh and Portal encrypted backups have a documented recovery procedure consistent with the 24-hour objective.
 - Wazuh reports no dropped events during validated load.
@@ -176,8 +187,8 @@ Shared SIEM Operations means the hospital IT team shares Wazuh operations. Despi
 
 | Phase | Deliverable | Gate |
 |---|---|---|
-| 0 | FortiSIEM handover assessment and hardware/EPS evidence | Hospital accepts handover findings |
-| 1 | TLS Log Relay, Wazuh all-in-one, Sophos priority detection, source health | Measured ingestion and detection acceptance |
+| 0 | FortiSIEM handover assessment, hardware/EPS evidence, and evidence export with verified image | Hospital accepts handover findings and approves the rebuild |
+| 1 | TLS Log Relay, Wazuh all-in-one on the existing server, Sophos priority detection, source health, log archive | Measured ingestion and detection acceptance |
 | 2 | Portal, MariaDB, roles/MFA, incident workflow, email/LINE notifications | UAT of P1–P4 workflow and audit trail |
 | 3 | Backup Evidence, port monitoring, Cloudflare sampled WAF, Duo Manual Check, executive reporting | Module UAT and redaction review |
 | 4 | AD/LDAP, Duo API when entitled, EDR Adapter, Backup File Management | Separate approval per capability |

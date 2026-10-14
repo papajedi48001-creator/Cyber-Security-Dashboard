@@ -1,0 +1,36 @@
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# Real deployment data (commit only *.example files)
+infrastructure/**/inventory.yml
+infrastructure/**/allowed-sources
+!infrastructure/**/*.example
+!infrastructure/**/*.example.*
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Python bytecode
+__pycache__/
+*.pyc

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the restricted hospital Portal for role-controlled incident operations, audit evidence, asset inventory, and read-only Wazuh alert intake.
+**Goal:** Build the restricted hospital Portal for role-controlled incident operations, audit evidence, asset inventory, read-only Wazuh alert intake, and P1/P2 notifications.
 
-**Architecture:** A TypeScript Next.js Portal runs separately from Wazuh and persists operational records in a dedicated MariaDB database. Wazuh remains the forensic source; the Portal stores alert references and normalized incident records only.
+**Architecture:** A TypeScript Next.js Portal runs separately from Wazuh and persists operational records in a dedicated MariaDB database. Wazuh remains the forensic source; the Portal pulls alert summaries from the Wazuh Indexer on a schedule (ADR 0006) and stores alert references and normalized incident records only.
 
-**Tech Stack:** Node.js LTS; Next.js App Router; TypeScript; MariaDB; Prisma ORM; Argon2 password hashing; TOTP MFA; signed secure session cookies; Vitest; Playwright.
+**Tech Stack:** Node.js LTS; Next.js App Router; TypeScript; MariaDB; Prisma ORM; Argon2 password hashing; TOTP MFA; signed secure session cookies; SMTP; LINE Messaging API; Vitest; Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-10-08-waritchaphum-cyber-security-dashboard-design.md`
 
@@ -19,6 +19,7 @@
 - Never persist patient data or duplicate raw Wazuh logs.
 - Store all times in UTC and render Asia/Bangkok time in user views.
 - All Portal mutations create immutable audit records.
+- LINE and email send only Notification Summary fields.
 
 ## Review Focus
 
@@ -26,7 +27,8 @@
 - Executive pages must redact internal IP addresses, usernames, raw events, and technical vulnerability details.
 - Expired/replayed MFA challenges and sessions must not authenticate a user.
 - A Wazuh connector outage must show stale data, not a false healthy state.
-- Duplicate Wazuh alert deliveries must not create duplicate incidents.
+- Re-reading an overlapping Wazuh query window must not create duplicate incidents.
+- Repeated failed logins must lock or slow the account, and MFA recovery must need a Security Administrator and leave an audit record.
 
 ---
 
@@ -45,7 +47,7 @@
 
 - [ ] **Step 1: Write failing configuration tests**
 
-Assert missing database, session, TOTP, Wazuh endpoint, or trusted-network configuration fails at startup without echoing secrets.
+Assert missing database, session, TOTP, Wazuh Indexer endpoint and service-account, or trusted-network configuration fails at startup without echoing secrets.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -118,14 +120,14 @@ git commit -m "feat: add portal security data model"
 
 - [ ] **Step 1: Write failing authorization tests**
 
-Cover valid and invalid password/TOTP, expired/replayed TOTP, Executive Viewer mutation denial, Operator configuration/approval denial, untrusted-network denial, and expired session.
+Cover valid and invalid password/TOTP, expired/replayed TOTP, account lockout after repeated failures, administrator-approved MFA reset, Executive Viewer mutation denial, Operator configuration/approval denial, untrusted-network denial, CSRF rejection on mutations, and expired session.
 
 - [ ] **Step 2: Run tests to verify failures**
 
 Run: `npm test -- auth.test.ts`  
 Expected: FAIL because auth modules are absent.
 
-- [ ] **Step 3: Implement Argon2 passwords, encrypted TOTP secrets, secure sessions, RBAC, and trusted-network middleware**
+- [ ] **Step 3: Implement Argon2 passwords, encrypted TOTP secrets, secure sessions, lockout, MFA reset, CSRF protection, security headers (CSP), RBAC, and trusted-network middleware**
 
 Keep an identity-provider interface separate so AD/LDAP can replace local identity without changing authorization code.
 
@@ -140,44 +142,79 @@ git add portal/src/lib/auth portal/src/middleware.ts
 git commit -m "feat: secure portal identity and roles"
 ```
 
-### Task 4: Implement assets, Wazuh intake, and source health
+### Task 4: Implement the asset register
 
 **Files:**
-- Create: `portal/src/lib/wazuh/client.ts`
-- Create: `portal/src/lib/wazuh/normalize-alert.ts`
-- Create: `portal/src/lib/source-health.ts`
-- Create: `portal/src/app/api/integrations/wazuh/route.ts`
-- Test: `portal/src/lib/wazuh/normalize-alert.test.ts`
-- Test: `portal/src/lib/source-health.test.ts`
+- Create: `portal/src/lib/assets/service.ts`
+- Create: `portal/src/app/assets/page.tsx`
+- Test: `portal/src/lib/assets/service.test.ts`
 
 **Interfaces:**
-- Produces: `normalizeWazuhAlert(input): NormalizedAlert`, `upsertAlertReference(alert): Promise<AlertReference>`, and `evaluateSourceHealth(source, now): SourceHealth`.
+- Produces: `createAsset`, `updateAsset`, `listAssets(filter)`, and `markCriticalAsset(assetId, reason)`.
 
-- [ ] **Step 1: Write failing intake tests**
+- [ ] **Step 1: Write failing asset tests**
 
-Cover every Sophos Priority Signal, malformed payload, duplicate alert id, stale connector result, and a missing source.
+Cover create/update by Security Administrator only, Critical Asset flag with reason, owner, expected log sources, and audit record per mutation. Reject patient data fields.
 
-- [ ] **Step 2: Run tests to verify failures**
+- [ ] **Step 2: Run tests to verify failure**
 
-Run: `npm test -- normalize-alert.test.ts source-health.test.ts`  
-Expected: FAIL because connector modules are absent.
+Run: `npm test -- assets/service.test.ts`  
+Expected: FAIL because asset modules are absent.
 
-- [ ] **Step 3: Implement read-only connector, normalization, deduplication, assets, and source-health evaluation**
+- [ ] **Step 3: Implement the asset service and Thai-first UI**
 
-Persist connector freshness. Failed or stale data must render degraded state, never healthy zero alerts.
+Seed the first-scope Critical Assets from the spec: HOSxP-related servers, database services, backup services, domain controllers, and the Sophos Firewall.
 
-- [ ] **Step 4: Run fixture-based integration tests**
+- [ ] **Step 4: Run unit and role-access browser tests**
 
-Expected: PASS; duplicate delivery updates one alert reference and raw payload is not persisted.
+Expected: PASS; Executive Viewer and Security Operator cannot change assets.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add portal/src/lib/wazuh portal/src/lib/source-health.ts portal/src/app/api/integrations/wazuh
-git commit -m "feat: ingest Wazuh alert summaries"
+git add portal/src/lib/assets portal/src/app/assets
+git commit -m "feat: add critical asset register"
 ```
 
-### Task 5: Implement incident lifecycle and closure review
+### Task 5: Implement Wazuh intake and source health
+
+**Files:**
+- Create: `portal/src/lib/wazuh/client.ts`
+- Create: `portal/src/lib/wazuh/normalize-alert.ts`
+- Create: `portal/src/lib/wazuh/poller.ts`
+- Create: `portal/src/lib/source-health.ts`
+- Test: `portal/src/lib/wazuh/normalize-alert.test.ts`
+- Test: `portal/src/lib/wazuh/poller.test.ts`
+- Test: `portal/src/lib/source-health.test.ts`
+
+**Interfaces:**
+- Produces: `normalizeWazuhAlert(input): NormalizedAlert`, `pollWazuhAlerts(checkpoint, now): Promise<PollResult>`, `upsertAlertReference(alert): Promise<AlertReference>`, and `evaluateSourceHealth(source, now): SourceHealth`.
+
+- [ ] **Step 1: Write failing intake tests**
+
+Cover every Sophos Priority Signal, malformed alert, overlapping query window with the same alert id, Indexer timeout or auth failure, stale checkpoint, and a missing source.
+
+- [ ] **Step 2: Run tests to verify failures**
+
+Run: `npm test -- normalize-alert.test.ts poller.test.ts source-health.test.ts`  
+Expected: FAIL because connector modules are absent.
+
+- [ ] **Step 3: Implement the read-only Indexer client, scheduled poller, normalization, deduplication, and source-health evaluation**
+
+Query only alert indices with the Wazuh Service Account, advance the checkpoint only after a successful write, and poll at one minute or less so P1 targets hold. Persist connector freshness. Failed or stale data must render degraded state, never healthy zero alerts. Develop against Wazuh alert fixtures until the real Indexer is accepted.
+
+- [ ] **Step 4: Run fixture-based integration tests**
+
+Expected: PASS; a re-read window updates one alert reference and raw payload is not persisted.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add portal/src/lib/wazuh portal/src/lib/source-health.ts
+git commit -m "feat: pull Wazuh alert summaries"
+```
+
+### Task 6: Implement incident lifecycle and closure review
 
 **Files:**
 - Create: `portal/src/lib/incidents/service.ts`
@@ -214,3 +251,37 @@ git add portal/src/lib/incidents portal/src/app/incidents
 git commit -m "feat: add auditable incident workflow"
 ```
 
+### Task 7: Add P1/P2 notifications
+
+**Files:**
+- Create: `portal/src/lib/notifications/payload.ts`
+- Create: `portal/src/lib/notifications/delivery.ts`
+- Test: `portal/src/lib/notifications/payload.test.ts`
+- Test: `portal/src/lib/notifications/delivery.test.ts`
+
+**Interfaces:**
+- Produces: `buildNotificationSummary(incident): NotificationSummary` and `deliverNotification(summary): Promise<DeliveryResult>`.
+
+- [ ] **Step 1: Write failing payload and delivery-failure tests**
+
+Assert LINE/email include only severity, incident number, detection time, system name, and Portal link. Assert delivery failure is audited and queued for escalation, and that P1/P2 send 24x7 while P3/P4 follow working hours.
+
+- [ ] **Step 2: Run tests to verify failure**
+
+Run: `npm test -- payload.test.ts delivery.test.ts`  
+Expected: FAIL because notification modules are absent.
+
+- [ ] **Step 3: Implement email and LINE OA adapters**
+
+Use separate adapters; persist delivery status without secrets.
+
+- [ ] **Step 4: Run unit tests and a simulated LINE/SMTP outage**
+
+Expected: PASS; payloads contain no restricted fields and failures are visible in the Portal.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add portal/src/lib/notifications
+git commit -m "feat: add redacted incident notifications"
+```

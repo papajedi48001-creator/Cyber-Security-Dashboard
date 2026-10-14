@@ -1,0 +1,36 @@
+# Log source and Critical Asset inventory for Wazuh and the Portal's
+# Log Source Health. Copy to inventory.yml (git-ignored) with real values.
+# Addresses below are documentation ranges.
+
+wazuh:
+  host: 192.0.2.20             # Existing SIEM Server rebuilt as Wazuh all-in-one
+  version: "4.x"               # record the exact installed version
+  hot_retention_days: 90
+  archive_retention_days: 365
+
+log_relay:
+  host: 192.0.2.10
+  listen_port: 6514
+  forward_port: 514
+  health_report: /var/log/relay-health.json
+
+log_sources:
+  - name: sophos-firewall
+    type: sophos_sfos
+    via: log_relay
+    address: 198.51.100.1
+    expected_interval_minutes: 5   # no event for longer than this = source stale
+    critical: true
+
+critical_assets:
+  # First monitoring scope from the design spec. Names only; no patient data.
+  - name: hosxp-app
+    role: HOSxP application server
+  - name: hosxp-db
+    role: HOSxP database service
+  - name: backup-server
+    role: Backup service
+  - name: dc01
+    role: Domain controller
+  - name: sophos-firewall
+    role: Perimeter firewall

@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4 \
+            detect --source /repo --redact --verbose
+
+  docs-links:
+    name: Markdown relative links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check relative links resolve
+        run: |
+          status=0
+          while IFS= read -r file; do
+            dir=$(dirname "$file")
+            { grep -oE '\]\([^)#[:space:]]+' "$file" || true; } | sed 's/^](//' | while IFS= read -r link; do
+              case "$link" in http*|mailto:*) continue ;; esac
+              if [ ! -e "$dir/$link" ]; then
+                echo "::error file=$file::broken link $link"
+                echo broken >> /tmp/broken
+              fi
+            done
+          done < <(git ls-files '*.md')
+          [ ! -s /tmp/broken ] || status=1
+          exit $status
+
+  log-relay:
+    name: Log relay tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install syslog-ng
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq syslog-ng-core
+      - name: Run unit and end-to-end tests
+        run: python3 -m unittest discover -s infrastructure/log-relay/tests -v
+
+  external-scan:
+    name: External scan converter tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s infrastructure/external-scan/tests -v
+
+  wazuh-ruleset:
+    name: Wazuh ruleset tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run decoder, rule and lifecycle tests
+        run: python3 -m unittest discover -s infrastructure/wazuh/tests -v
+
+  operations-records:
+    name: Operations record validator tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run validator tests
+        run: python3 -m unittest discover -s docs/operations/tests -v
+
+  portal:
+    name: Portal typecheck, tests, build and browser flows
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-only
+          MARIADB_DATABASE: portal_test
+          MARIADB_USER: portal
+          MARIADB_PASSWORD: ci-test-only
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://portal:ci-test-only@127.0.0.1:3306/portal_test
+      TEST_DATABASE_URL: mysql://portal:ci-test-only@127.0.0.1:3306/portal_test
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Browser role flows (Playwright)
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: portal/playwright-report
+          retention-days: 7
