@@ -6,8 +6,11 @@ import { loadConfig, type PortalConfig } from "../config";
 import { prisma } from "../db/client";
 import { PrismaAssetStore } from "../db/asset-store";
 import { PrismaAuditStore } from "../db/audit-store";
+import { PrismaDeliveryStore } from "../db/delivery-store";
 import { PrismaIncidentStore } from "../db/incident-store";
 import { createIncidentService, type IncidentService } from "../incidents/service";
+import { createEmailChannel, createLineChannel } from "../notifications/channels";
+import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
 import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
 
 export interface Services {
@@ -16,6 +19,7 @@ export interface Services {
   auth: AuthService;
   assets: AssetService;
   incidents: IncidentService;
+  notifier: Notifier;
 }
 
 let services: Services | undefined;
@@ -25,6 +29,15 @@ export function getServices(): Services {
   if (services) return services;
   const config = loadConfig();
   const audit = createAuditLog(new PrismaAuditStore(prisma));
+  const channels: NotificationChannel[] = [];
+  if (config.notifications.email) channels.push(createEmailChannel(config.notifications.email));
+  if (config.notifications.line) channels.push(createLineChannel(config.notifications.line));
+  const notifier = createNotifier({
+    store: new PrismaDeliveryStore(prisma),
+    channels,
+    audit,
+    portalBaseUrl: config.portalBaseUrl,
+  });
   services = {
     config,
     audit,
@@ -35,7 +48,8 @@ export function getServices(): Services {
       totpKey: config.totpEncryptionKey,
     }),
     assets: createAssetService({ store: new PrismaAssetStore(prisma), audit }),
-    incidents: createIncidentService({ store: new PrismaIncidentStore(prisma), audit }),
+    incidents: createIncidentService({ store: new PrismaIncidentStore(prisma), audit, notify: notifier.enqueue }),
+    notifier,
   };
   return services;
 }

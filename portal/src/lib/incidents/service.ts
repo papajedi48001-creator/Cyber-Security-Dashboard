@@ -98,6 +98,8 @@ export interface IncidentStore {
   listAssignees(): Promise<{ id: string; displayName: string }[]>;
   /** Alert references not linked to any incident, newest first. */
   listSecurityEvents(limit: number): Promise<LinkedAlert[]>;
+  /** Unlinked alerts at or above `minLevel` detected since `since`, oldest first. */
+  pendingAlerts(minLevel: number, since: Date, limit: number): Promise<LinkedAlert[]>;
 }
 
 export class IncidentRuleError extends Error {
@@ -119,6 +121,8 @@ const TRANSITIONS: Partial<Record<IncidentStatus, IncidentStatus[]>> = {
 };
 const OWNER_ROLES: ReadonlySet<Role> = new Set(["SECURITY_ADMINISTRATOR", "SECURITY_OPERATOR"]);
 const SYSTEM_ACTOR = { id: null, label: "system:wazuh-intake" } as const;
+/** Lowest Wazuh rule level that suggests P2 (see suggestedSeverity). */
+const AUTO_RAISE_MIN_LEVEL = 10;
 const NATIONAL_ID = /(?<!\d)\d{13}(?!\d)/;
 
 export const STATUS_LABELS: Record<IncidentStatus, string> = {
@@ -147,14 +151,19 @@ function severity(value: string): Severity {
 /** Incident numbers follow the hospital's calendar year (Asia/Bangkok). */
 const bangkokYear = (d: Date) => new Date(d.getTime() + 7 * 3_600_000).getUTCFullYear();
 
+/** Called after an incident opens or is raised in severity; queues Notification Summaries. */
+export type IncidentNotify = (incident: Incident, event: string, correlationId: string) => Promise<void>;
+
 export function createIncidentService({
   store,
   audit,
   clock = () => new Date(),
+  notify = async () => {},
 }: {
   store: IncidentStore;
   audit: AuditLog;
   clock?: () => Date;
+  notify?: IncidentNotify;
 }) {
   const record = (
     actor: { id: string | null; label: string },
@@ -227,10 +236,11 @@ export function createIncidentService({
       { at: now, actorId: actor.id, type: "created", note: null },
     );
     await record(actor, "incident.created", incident, correlationId, { severity: incident.severity, ...metadata });
+    await notify(incident, "incident.opened", correlationId);
     return incident;
   }
 
-  return {
+  const service = {
     async listIncidents(actor: Principal, filter: IncidentFilter) {
       requirePermission(actor, "incident.read");
       return store.list(filter);
@@ -333,6 +343,7 @@ export function createIncidentService({
         { actorId: actor.id, type: "severity_changed", note: `${incident.severity} → ${next}: ${why}` },
       );
       await record(who(actor), "incident.severity_changed", updated, correlationId, { from: incident.severity, to: next, reason: why });
+      if (SEVERITIES.indexOf(next) < SEVERITIES.indexOf(incident.severity)) await notify(updated, `severity.${next}`, correlationId);
       return updated;
     },
 
@@ -453,6 +464,44 @@ export function createIncidentService({
       return raised;
     },
 
+    /**
+     * Opens one incident per silent log source (category log_source_health) so a
+     * gap in visibility is handled like any other incident: P2 when the source
+     * covers a Critical Asset, P3 otherwise. An active incident is not duplicated.
+     */
+    async raiseSourceHealth(
+      sources: { name: string; critical: boolean; reason: string; since: Date }[],
+      correlationId: string,
+    ): Promise<Incident[]> {
+      const raised: Incident[] = [];
+      for (const source of sources) {
+        if (await store.findActiveGroup("log_source_health", source.name)) continue;
+        raised.push(
+          await open(
+            { id: null, label: "system:source-health" },
+            {
+              title: `แหล่ง Log ${source.name} ขาดหาย: ${source.reason}`.slice(0, 255),
+              severity: source.critical ? "P2" : "P3",
+              detectedAt: source.since,
+              category: "log_source_health",
+              sourceName: source.name,
+            },
+            correlationId,
+          ),
+        );
+      }
+      return raised;
+    },
+
+    /**
+     * Raises incidents for every stored P1/P2-level alert that is not yet linked,
+     * so an intake interrupted after the alerts were stored still opens them.
+     */
+    async raisePending(correlationId: string, lookbackHours = 24): Promise<Incident[]> {
+      const since = new Date(clock().getTime() - lookbackHours * 3_600_000);
+      return service.raiseFromAlerts(await store.pendingAlerts(AUTO_RAISE_MIN_LEVEL, since, 500), correlationId);
+    },
+
     async promoteAlert(actor: Actor, wazuhAlertId: string, level: Severity, correlationId: string) {
       requirePermission(actor, "incident.write");
       const alert = await store.findAlert(wazuhAlertId);
@@ -468,6 +517,7 @@ export function createIncidentService({
       return incident;
     },
   };
+  return service;
 }
 
 export type IncidentService = ReturnType<typeof createIncidentService>;
@@ -566,6 +616,12 @@ export class InMemoryIncidentStore implements IncidentStore {
     return [...this.alertRefs.values()]
       .filter((a) => !this.links.has(a.wazuhAlertId) && !a.incidentId)
       .sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
+      .slice(0, limit);
+  }
+  async pendingAlerts(minLevel: number, since: Date, limit: number) {
+    return [...this.alertRefs.values()]
+      .filter((a) => !this.links.has(a.wazuhAlertId) && !a.incidentId && a.ruleLevel >= minLevel && a.detectedAt >= since)
+      .sort((a, b) => a.detectedAt.getTime() - b.detectedAt.getTime())
       .slice(0, limit);
   }
   async findAssignee(userId: string) {

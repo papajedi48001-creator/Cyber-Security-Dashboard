@@ -155,4 +155,14 @@ export class PrismaIncidentStore implements IncidentStore {
     });
     return rows.map(toAlert);
   }
+
+  async pendingAlerts(minLevel: number, since: Date, limit: number) {
+    const rows = await this.db.alertReference.findMany({
+      where: { incidentId: null, ruleLevel: { gte: minLevel }, detectedAt: { gte: since } },
+      orderBy: { detectedAt: "asc" },
+      take: limit,
+      select: alertSelect,
+    });
+    return rows.map(toAlert);
+  }
 }

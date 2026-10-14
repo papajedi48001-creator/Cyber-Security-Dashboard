@@ -19,10 +19,11 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
   const session = await requirePageSession("incident.read");
   const params = await searchParams;
   const view = VIEWS.find((v) => v.value === params.view)?.value ?? "open";
-  const { incidents } = getServices();
-  const [list, events] = await Promise.all([
+  const { incidents, notifier } = getServices();
+  const [list, events, failures] = await Promise.all([
     incidents.listIncidents(session.user, { view }),
     incidents.listSecurityEvents(session.user, 50),
+    notifier.openFailures(),
   ]);
   const now = new Date();
   const writable = can(session.user, "incident.write");
@@ -30,6 +31,25 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
     <>
       <h1>Incident</h1>
       {params.error && <p className="error" role="alert">{params.error}</p>}
+      {notifier.channelsConfigured.length === 0 && (
+        <p className="card state-bad" role="alert">
+          ยังไม่ได้ตั้งค่าช่องทางแจ้งเตือน (Email หรือ LINE OA) ระบบจะไม่ส่งแจ้งเตือน incident
+        </p>
+      )}
+      {failures.length > 0 && (
+        <div className="card" role="alert">
+          <h2 className="state-bad">แจ้งเตือนส่งไม่สำเร็จ</h2>
+          <ul>
+            {failures.map((f) => (
+              <li key={f.id}>
+                <Link href={`/incidents/${f.incidentId}`}>{f.incidentNumber}</Link> ทาง {f.channel}:{" "}
+                {f.status === "ESCALATED" ? "ส่งไม่สำเร็จครบทุกครั้ง ต้องแจ้งผู้รับผิดชอบด้วยวิธีอื่น" : `กำลังลองใหม่ (ครั้งที่ ${f.attempts})`}
+                {f.lastError ? ` — ${f.lastError}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <nav style={{ display: "flex", gap: 12, marginBottom: 12 }}>
         {VIEWS.map((v) => (
           <Link key={v.value} href={`/incidents?view=${v.value}`} aria-current={v.value === view ? "page" : undefined}>

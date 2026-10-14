@@ -29,6 +29,20 @@ infrastructure/  template ของ Log Relay, Wazuh และ external scan (�
 portal/          Security Operations Portal (Next.js + TypeScript + Prisma + MariaDB)
 ```
 
+## การรัน Portal
+
+Portal มี 2 process ที่ใช้ฐานข้อมูลเดียวกัน (ตั้งค่าตาม `portal/.env.example`)
+
+```bash
+cd portal
+npm ci && npx prisma migrate deploy
+npm run build && npm start   # หน้าเว็บ
+npm run worker               # ดึง alert จาก Wazuh, เปิด incident, ตรวจแหล่ง Log ขาดหาย, ส่งแจ้งเตือน
+```
+
+แจ้งเตือนส่งทาง Email (SMTP) และ/หรือ LINE OA โดยมีเฉพาะระดับ, เลข incident, เวลาที่ตรวจพบ, ชื่อระบบ และลิงก์ Portal
+P1/P2 ส่งทันทีตลอด 24 ชม. P3/P4 ส่งในเวลาทำการ การส่งที่ล้มเหลวจะลองใหม่และแสดงในหน้า Incident
+
 ## การมีส่วนร่วม
 
 - ทำงานผ่าน branch และ Pull Request ไม่ commit ตรงเข้า `master`

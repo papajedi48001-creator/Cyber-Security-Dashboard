@@ -188,10 +188,52 @@ describe("raising incidents from Wazuh alerts", () => {
     expect(raised).toHaveLength(0);
   });
 
+  it("raises pending stored alerts that an interrupted intake left unlinked", async () => {
+    store.alertRefs.set("a9", { ...alert("a9", 13, "firewall_rule_change", -30), incidentId: null });
+    store.alertRefs.set("a10", { ...alert("a10", 5, "blocked_traffic", -30), incidentId: null });
+    const raised = await service.raisePending("c");
+    expect(raised.map((i) => i.severity)).toEqual(["P1"]);
+    expect(await service.raisePending("c")).toHaveLength(0);
+  });
+
   it("lets an operator promote a Security Event to an incident", async () => {
     store.alertRefs.set("ev1", { ...alert("ev1", 8, "vpn_anomaly"), incidentId: null });
     const incident = await service.promoteAlert(opA, "ev1", "P3", "c");
     expect(incident.severity).toBe("P3");
     expect(store.links.get("ev1")).toBe(incident.id);
+  });
+});
+
+describe("notifications", () => {
+  it("notifies when an incident opens and when its severity is raised, not lowered", async () => {
+    const events: string[] = [];
+    const notifying = createIncidentService({
+      store: new InMemoryIncidentStore(),
+      audit: createAuditLog(new InMemoryAuditStore(), () => now),
+      clock: () => now,
+      notify: async (incident, event) => {
+        events.push(`${incident.number}:${event}`);
+      },
+    });
+    const incident = await notifying.createIncident(opA, { title: "t", severity: "P3", detectedAt: NOW }, "c");
+    await notifying.changeSeverity(opA, incident.id, "P2", "spreading", "c");
+    await notifying.changeSeverity(opB, incident.id, "P4", "false positive", "c");
+    expect(events).toEqual(["INC-2026-0001:incident.opened", "INC-2026-0001:severity.P2"]);
+  });
+});
+
+describe("source health incidents", () => {
+  it("opens one incident per silent source and does not duplicate an active one", async () => {
+    const silent = [
+      { name: "sophos-firewall", critical: true, reason: "ไม่มีข้อมูลมา 20 นาที", since: NOW },
+      { name: "wifi-controller", critical: false, reason: "ไม่มีข้อมูลมา 90 นาที", since: NOW },
+    ];
+    const first = await service.raiseSourceHealth(silent, "c");
+    expect(first.map((i) => [i.sourceName, i.severity, i.category])).toEqual([
+      ["sophos-firewall", "P2", "log_source_health"],
+      ["wifi-controller", "P3", "log_source_health"],
+    ]);
+    expect(await service.raiseSourceHealth(silent, "c")).toHaveLength(0);
+    expect(auditStore.records[0]).toMatchObject({ actorLabel: "system:source-health" });
   });
 });

@@ -16,12 +16,14 @@
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "worker": "tsx src/worker.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
     "next": "15.5.27",
+    "nodemailer": "10.0.12",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "zod": "3.25.76"
@@ -34,10 +36,11 @@
     "prisma": "6.19.3",
     "tsx": "4.20.5",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "3.2.7"
   },
   "overrides": {
     "postcss": "8.5.30",
-    "deepmerge-ts": "7.1.6"
+    "deepmerge-ts": "8.0.2",
+    "tinypool": "2.1.2"
   }
 }

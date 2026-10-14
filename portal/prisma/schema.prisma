@@ -104,18 +104,18 @@ model ConnectorState {
 }
 
 model AlertReference {
-  id               String    @id @default(cuid())
-  wazuhAlertId     String    @unique @db.VarChar(128)
+  id               String   @id @default(cuid())
+  wazuhAlertId     String   @unique @db.VarChar(128)
   ruleId           Int
   ruleLevel        Int
-  category         String    @db.VarChar(64)
-  description      String    @db.VarChar(255)
-  sourceName       String    @db.VarChar(128)
+  category         String   @db.VarChar(64)
+  description      String   @db.VarChar(255)
+  sourceName       String   @db.VarChar(128)
   detectedAt       DateTime
-  firstSeenAt      DateTime  @default(now())
-  lastSeenAt       DateTime  @default(now())
-  deliveryCount    Int       @default(1)
-  investigationUrl String    @db.VarChar(500)
+  firstSeenAt      DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  deliveryCount    Int      @default(1)
+  investigationUrl String   @db.VarChar(500)
   incidentId       String?
 
   incident Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
@@ -145,11 +145,12 @@ model Incident {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  asset    Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  owner    User?                   @relation("IncidentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  alerts   AlertReference[]
-  timeline IncidentTimelineEntry[]
-  evidence ClosureEvidence[]
+  asset         Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  owner         User?                   @relation("IncidentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  alerts        AlertReference[]
+  timeline      IncidentTimelineEntry[]
+  evidence      ClosureEvidence[]
+  notifications NotificationDelivery[]
 
   @@index([status, severity])
   @@index([category, sourceName, status])
@@ -183,6 +184,40 @@ model ClosureEvidence {
   incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
   @@index([incidentId])
+}
+
+enum NotificationChannel {
+  EMAIL
+  LINE
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  ESCALATED
+}
+
+// Delivery state for Notification Summaries. `message` holds only the redacted
+// summary text; channel credentials live in configuration, never here.
+model NotificationDelivery {
+  id            String              @id @default(cuid())
+  incidentId    String
+  channel       NotificationChannel
+  event         String              @db.VarChar(64)
+  message       String              @db.Text
+  status        DeliveryStatus      @default(PENDING)
+  attempts      Int                 @default(0)
+  notBefore     DateTime
+  nextAttemptAt DateTime
+  lastError     String?             @db.VarChar(200)
+  sentAt        DateTime?
+  createdAt     DateTime            @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@unique([incidentId, channel, event])
+  @@index([status, nextAttemptAt])
 }
 
 // Append-only: a database trigger (see migration) rejects UPDATE and DELETE.

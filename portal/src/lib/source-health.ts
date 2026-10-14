@@ -53,3 +53,33 @@ export function evaluateSourceHealth(
     return { ...base, status: "stale", silentMinutes, reason: `ไม่มีข้อมูลมา ${silentMinutes} นาที (เกณฑ์ ${source.expectedIntervalMinutes} นาที)` };
   return { ...base, status: "healthy", silentMinutes, reason: "ได้รับข้อมูลตามเกณฑ์" };
 }
+
+export interface SilentSource {
+  name: string;
+  critical: boolean;
+  reason: string;
+  since: Date;
+}
+
+/**
+ * Sources that need a source-health incident. When the Wazuh connector itself
+ * is stale every source is unknown, so only the connector is reported. Sources
+ * that have never sent data are not onboarded yet and are left to the Sources page.
+ */
+export function findSilentSources(
+  sources: (SourceSnapshot & { critical: boolean })[],
+  connector: ConnectorStatus,
+  connectorName: string,
+  now: Date,
+  pollIntervalSeconds: number,
+): SilentSource[] {
+  const freshness = connectorFreshness(connector, now, pollIntervalSeconds);
+  if (freshness.status === "stale")
+    return [{ name: connectorName, critical: true, reason: freshness.reason, since: connector.lastSuccessAt ?? now }];
+  return sources.flatMap((source) => {
+    const health = evaluateSourceHealth(source, now, connector, pollIntervalSeconds);
+    return health.status === "stale"
+      ? [{ name: source.name, critical: source.critical, reason: health.reason, since: source.lastEventAt! }]
+      : [];
+  });
+}

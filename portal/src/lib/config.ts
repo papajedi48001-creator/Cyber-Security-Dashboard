@@ -1,4 +1,5 @@
 import { parseNetwork } from "./net";
+import type { EmailSettings } from "./notifications/channels";
 
 export interface PortalConfig {
   databaseUrl: string;
@@ -14,6 +15,10 @@ export interface PortalConfig {
     password: string;
     pollIntervalSeconds: number;
     caCertPath?: string;
+  };
+  notifications: {
+    email?: EmailSettings;
+    line?: { accessToken: string; to: string };
   };
 }
 
@@ -92,6 +97,26 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       fail("WAZUH_POLL_INTERVAL_SECONDS", `must be an integer between 5 and ${MAX_POLL_INTERVAL_SECONDS}`);
   }
 
+  // Notification channels are optional individually; the Portal shows when none is set.
+  let email: EmailSettings | undefined;
+  const smtpHost = env.SMTP_HOST?.trim();
+  if (smtpHost) {
+    const port = Number(env.SMTP_PORT?.trim() || "587");
+    if (!Number.isInteger(port) || port < 1 || port > 65535) fail("SMTP_PORT", "must be a TCP port number");
+    const from = required("SMTP_FROM");
+    const to = required("NOTIFY_EMAIL_TO")
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+    if (to.some((a) => !/^[^\s@]+@[^\s@]+$/.test(a))) fail("NOTIFY_EMAIL_TO", "must be a comma-separated list of email addresses");
+    const user = env.SMTP_USER?.trim() || undefined;
+    if (user && !env.SMTP_PASSWORD) fail("SMTP_PASSWORD", "is required when SMTP_USER is set");
+    email = { host: smtpHost, port, user, password: user ? env.SMTP_PASSWORD : undefined, from, to };
+  }
+  let line: { accessToken: string; to: string } | undefined;
+  const lineToken = env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
+  if (lineToken) line = { accessToken: lineToken, to: required("LINE_TO") };
+
   if (problems.length) throw new ConfigError(variables, problems);
 
   return {
@@ -109,5 +134,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       pollIntervalSeconds,
       caCertPath: env.WAZUH_INDEXER_CA_CERT?.trim() || undefined,
     },
+    notifications: { email, line },
   };
 }

@@ -86,4 +86,21 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...VALID_ENV, WAZUH_POLL_INTERVAL_SECONDS: "30" }).wazuh.pollIntervalSeconds).toBe(30);
     expectConfigError({ ...VALID_ENV, WAZUH_POLL_INTERVAL_SECONDS: "300" }, "WAZUH_POLL_INTERVAL_SECONDS");
   });
+
+  it("configures notification channels only when complete", () => {
+    expect(loadConfig(VALID_ENV).notifications).toEqual({ email: undefined, line: undefined });
+    const config = loadConfig({
+      ...VALID_ENV,
+      SMTP_HOST: "smtp.hospital.example",
+      SMTP_FROM: "soc@hospital.example",
+      NOTIFY_EMAIL_TO: "a@hospital.example, b@hospital.example",
+      LINE_CHANNEL_ACCESS_TOKEN: "line-token",
+      LINE_TO: "Cgroup",
+    });
+    expect(config.notifications.email).toMatchObject({ port: 587, to: ["a@hospital.example", "b@hospital.example"] });
+    expect(config.notifications.line).toEqual({ accessToken: "line-token", to: "Cgroup" });
+    expectConfigError({ ...VALID_ENV, SMTP_HOST: "smtp", SMTP_FROM: "soc@h" }, "NOTIFY_EMAIL_TO");
+    expectConfigError({ ...VALID_ENV, LINE_CHANNEL_ACCESS_TOKEN: "t" }, "LINE_TO");
+    expectConfigError({ ...VALID_ENV, SMTP_HOST: "smtp", SMTP_FROM: "s@h", NOTIFY_EMAIL_TO: "a@h", SMTP_USER: "u" }, "SMTP_PASSWORD");
+  });
 });
