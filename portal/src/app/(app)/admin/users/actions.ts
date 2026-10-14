@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Role } from "@/lib/auth/authorize";
+import { PROVIDER_ID_ISSUER } from "@/lib/auth/service";
 import { getServices, newCorrelationId } from "@/lib/server/context";
 import { requireActionSession } from "@/lib/server/session";
 
@@ -53,6 +54,38 @@ export async function setActiveAction(form: FormData): Promise<void> {
     actor: session.user,
     userId: form.get("userId")?.toString() ?? "",
     active: form.get("active") === "true",
+    correlationId: newCorrelationId(),
+  });
+  revalidatePath("/admin/users");
+}
+
+export interface LinkState {
+  error?: string;
+}
+
+export async function linkProviderIdAction(_state: LinkState, form: FormData): Promise<LinkState> {
+  const session = await requireActionSession("user.manage", form);
+  try {
+    await getServices().auth.linkExternalIdentity({
+      actor: session.user,
+      userId: form.get("userId")?.toString() ?? "",
+      issuer: PROVIDER_ID_ISSUER,
+      subject: form.get("providerId")?.toString() ?? "",
+      correlationId: newCorrelationId(),
+    });
+  } catch (error) {
+    return { error: error instanceof Error && error.message ? error.message : "ผูก Provider ID ไม่สำเร็จ" };
+  }
+  revalidatePath("/admin/users");
+  return {};
+}
+
+export async function unlinkProviderIdAction(form: FormData): Promise<void> {
+  const session = await requireActionSession("user.manage", form);
+  await getServices().auth.unlinkExternalIdentity({
+    actor: session.user,
+    userId: form.get("userId")?.toString() ?? "",
+    issuer: PROVIDER_ID_ISSUER,
     correlationId: newCorrelationId(),
   });
   revalidatePath("/admin/users");

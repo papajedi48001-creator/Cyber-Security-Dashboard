@@ -111,4 +111,10 @@ describe("loadConfig", () => {
     expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t" }, "CLOUDFLARE_ZONE_ID");
     expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t", CLOUDFLARE_ZONE_ID: "example.com" }, "CLOUDFLARE_ZONE_ID");
   });
+
+  it("enables Provider ID Login settings only with a five-digit hospital code", () => {
+    expect(loadConfig(VALID_ENV).providerId).toBeUndefined();
+    expect(loadConfig({ ...VALID_ENV, PROVIDER_ID_HOSPITAL_CODE: "10999" }).providerId).toEqual({ hospitalCode: "10999" });
+    expectConfigError({ ...VALID_ENV, PROVIDER_ID_HOSPITAL_CODE: "10999x" }, "PROVIDER_ID_HOSPITAL_CODE");
+  });
 });

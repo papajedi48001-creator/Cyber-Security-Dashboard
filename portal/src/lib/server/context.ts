@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAssetService, type AssetService } from "../assets/service";
 import { createAuditLog, type AuditLog } from "../audit";
+import { createProviderIdLogin, type ProviderIdClient, type ProviderIdLogin } from "../auth/provider-id";
 import { createAuthService, type AuthService } from "../auth/service";
 import { loadConfig, type PortalConfig } from "../config";
 import { prisma } from "../db/client";
@@ -25,6 +26,8 @@ export interface Services {
   config: PortalConfig;
   audit: AuditLog;
   auth: AuthService;
+  /** Null until a real Provider ID client is configured (ADR 0009); the login page then hides the option. */
+  providerId: ProviderIdLogin | null;
   assets: AssetService;
   incidents: IncidentService;
   notifier: Notifier;
@@ -50,17 +53,31 @@ export function getServices(): Services {
     audit,
     portalBaseUrl: config.portalBaseUrl,
   });
+  const auth = createAuthService({
+    users: new PrismaUserStore(prisma),
+    sessions: new PrismaSessionStore(prisma),
+    externalIdentities: new PrismaExternalIdentityStore(prisma),
+    audit,
+    totpKey: config.totpEncryptionKey,
+  });
+  // The Health ID / Provider ID HTTP adapter is written once the hospital's client registration
+  // and the official API documentation are available (plan 2026-10-14-provider-id-login, Task 6).
+  const providerIdClient: ProviderIdClient | null = null;
   const ports = createPortMonitorService({ store: new PrismaPortStore(prisma), audit });
   services = {
     config,
     audit,
-    auth: createAuthService({
-      users: new PrismaUserStore(prisma),
-      sessions: new PrismaSessionStore(prisma),
-      externalIdentities: new PrismaExternalIdentityStore(prisma),
-      audit,
-      totpKey: config.totpEncryptionKey,
-    }),
+    auth,
+    providerId:
+      providerIdClient && config.providerId
+        ? createProviderIdLogin({
+            client: providerIdClient,
+            auth,
+            audit,
+            hospitalCode: config.providerId.hospitalCode,
+            redirectUri: `${config.portalBaseUrl}/login/provider-id/callback`,
+          })
+        : null,
     assets: createAssetService({ store: new PrismaAssetStore(prisma), audit }),
     incidents: createIncidentService({
       store: new PrismaIncidentStore(prisma),

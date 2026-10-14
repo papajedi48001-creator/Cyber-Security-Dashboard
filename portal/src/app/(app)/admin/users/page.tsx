@@ -1,8 +1,8 @@
 import { ROLE_LABELS } from "@/lib/auth/authorize";
 import { getServices } from "@/lib/server/context";
 import { requirePageSession } from "@/lib/server/session";
-import { setActiveAction } from "./actions";
-import { CreateUserForm, ResetMfaForm } from "./UserForms";
+import { setActiveAction, unlinkProviderIdAction } from "./actions";
+import { CreateUserForm, LinkProviderIdForm, ResetMfaForm } from "./UserForms";
 
 export default async function UsersPage() {
   const session = await requirePageSession("user.manage");
@@ -18,6 +18,7 @@ export default async function UsersPage() {
               <th>ชื่อ</th>
               <th>บทบาท</th>
               <th>สถานะ</th>
+              <th>Provider ID</th>
               <th></th>
             </tr>
           </thead>
@@ -28,6 +29,20 @@ export default async function UsersPage() {
                 <td>{u.displayName}</td>
                 <td>{ROLE_LABELS[u.role]}</td>
                 <td>{!u.active ? "ปิดใช้งาน" : u.locked ? "ถูกล็อกชั่วคราว" : "ใช้งาน"}</td>
+                <td>
+                  {u.providerId ? (
+                    <form action={unlinkProviderIdAction} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <code>{u.providerId}</code>
+                      <input type="hidden" name="csrf" value={session.csrfToken} />
+                      <input type="hidden" name="userId" value={u.id} />
+                      <button className="secondary" type="submit">
+                        ยกเลิกการผูก
+                      </button>
+                    </form>
+                  ) : (
+                    <LinkProviderIdForm csrf={session.csrfToken} userId={u.id} />
+                  )}
+                </td>
                 <td>
                   {u.id !== session.user.id && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

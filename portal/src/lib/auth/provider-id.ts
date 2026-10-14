@@ -46,6 +46,11 @@ export interface ProviderIdLoginDeps {
   redirectUri: string;
 }
 
+/** Short-lived cookies for the redirect round trip; Lax because the provider redirects back cross-site. */
+export const PROVIDER_ID_FLOW_COOKIE = "__Host-portal_pid_flow";
+export const PROVIDER_ID_FLOW_SECONDS = 10 * 60;
+export const MFA_CHALLENGE_COOKIE = "__Host-portal_mfa_challenge";
+
 const PROVIDER_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const random = () => randomBytes(32).toString("base64url");
 
