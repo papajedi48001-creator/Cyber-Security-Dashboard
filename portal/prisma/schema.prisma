@@ -130,6 +130,8 @@ model Incident {
   title          String         @db.VarChar(255)
   severity       Severity
   status         IncidentStatus @default(NEW)
+  category       String?        @db.VarChar(64)
+  sourceName     String?        @db.VarChar(128)
   assetId        String?
   ownerId        String?
   detectedAt     DateTime
@@ -150,6 +152,7 @@ model Incident {
   evidence ClosureEvidence[]
 
   @@index([status, severity])
+  @@index([category, sourceName, status])
 }
 
 model IncidentTimelineEntry {
