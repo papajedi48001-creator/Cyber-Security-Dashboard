@@ -1,0 +1,48 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #5b6575;
+  --border: #d9dee6;
+  --accent: #1f5fbf;
+  --p1: #b42318;
+  --p2: #c4320a;
+  --p3: #b54708;
+  --p4: #475467;
+  --ok: #067647;
+  --warn: #b54708;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Sarabun", "Noto Sans Thai", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+a { color: var(--accent); }
+header.top {
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+header.top nav { display: flex; gap: 12px; flex-wrap: wrap; }
+header.top .who { margin-left: auto; color: var(--muted); }
+main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 13px; color: #fff; }
+.badge.P1 { background: var(--p1); } .badge.P2 { background: var(--p2); }
+.badge.P3 { background: var(--p3); } .badge.P4 { background: var(--p4); }
+.state-ok { color: var(--ok); } .state-warn { color: var(--warn); } .state-bad { color: var(--p1); }
+form.stack { display: grid; gap: 10px; max-width: 420px; }
+label { display: grid; gap: 4px; }
+input, select, textarea, button { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+button { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; }
+button.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.error { color: var(--p1); }
+.muted { color: var(--muted); }
