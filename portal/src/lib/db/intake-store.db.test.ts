@@ -10,7 +10,8 @@ describe.skipIf(!testDatabaseUrl)("PrismaIntakeStore (MariaDB)", () => {
   afterAll(() => prisma?.$disconnect());
 
   it("deduplicates repeated deliveries and stores no raw payload", async () => {
-    const run = Date.now();
+    // Base 36 keeps the id from looking like a 13-digit national ID, which the audit log rejects.
+    const run = Date.now().toString(36);
     const hit: IndexerHit = {
       _id: `db-alert-${run}`,
       _source: {
@@ -19,7 +20,7 @@ describe.skipIf(!testDatabaseUrl)("PrismaIntakeStore (MariaDB)", () => {
         decoder: { name: "sophos-sfos" },
         full_log: "raw-secret-content",
       },
-      sort: [run, `db-alert-${run}`],
+      sort: [Date.now(), `db-alert-${run}`],
     };
     const store = new PrismaIntakeStore(prisma);
     const deps = {
@@ -35,5 +36,7 @@ describe.skipIf(!testDatabaseUrl)("PrismaIntakeStore (MariaDB)", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.deliveryCount).toBe(2);
     expect(JSON.stringify(rows)).not.toContain("raw-secret-content");
+    // Leave no unlinked priority alert behind for the e2e worker run to pick up.
+    await prisma.alertReference.deleteMany({ where: { wazuhAlertId: hit._id } });
   });
 });
