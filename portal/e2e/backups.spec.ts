@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { storageFile } from "./env";
 
 const job = `e2e-backup-${Date.now().toString(36)}`;
+/** A datetime-local value in Bangkok time, `hoursAgo` before now, so the evidence never ages into "stale". */
+const bangkokHoursAgo = (hoursAgo: number) =>
+  new Date(Date.now() + 7 * 3_600_000 - hoursAgo * 3_600_000).toISOString().slice(0, 16);
 
 test("backup success stays unconfirmed until a separate restore test passes", async ({ browser }) => {
   const admin = await (await browser.newContext({ storageState: storageFile("admin") })).newPage();
@@ -17,14 +20,14 @@ test("backup success stays unconfirmed until a separate restore test passes", as
   await expect(operator.getByRole("button", { name: "เพิ่มงาน" })).toHaveCount(0);
   const evidenceForm = operator.locator("form").filter({ hasText: "บันทึกผล backup" });
   await evidenceForm.getByLabel("งาน").selectOption(job);
-  await evidenceForm.getByLabel("เสร็จเมื่อ (เวลาไทย)").fill("2026-10-14T01:00");
+  await evidenceForm.getByLabel("เสร็จเมื่อ (เวลาไทย)").fill(bangkokHoursAgo(2));
   await evidenceForm.getByRole("button", { name: "บันทึกผล backup" }).click();
   await expect(row(operator)).toContainText("สำรองตามรอบ");
   await expect(row(operator)).toContainText("ยังไม่ยืนยันการกู้คืน");
 
   const restoreForm = operator.locator("form").filter({ hasText: "บันทึกผลทดสอบกู้คืน" });
   await restoreForm.getByLabel("งาน").selectOption(job);
-  await restoreForm.getByLabel("ทดสอบเมื่อ (เวลาไทย)").fill("2026-10-14T02:00");
+  await restoreForm.getByLabel("ทดสอบเมื่อ (เวลาไทย)").fill(bangkokHoursAgo(1));
   await restoreForm.getByLabel("อ้างอิงหลักฐาน (ชื่อไฟล์/ที่เก็บ)").fill("restore-test-e2e.pdf");
   await restoreForm.getByRole("button", { name: "บันทึกผลทดสอบกู้คืน" }).click();
   await expect(row(operator)).toContainText("ทดสอบกู้คืนผ่าน");
