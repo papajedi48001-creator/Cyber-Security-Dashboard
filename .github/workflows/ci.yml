@@ -77,7 +77,7 @@ jobs:
 
   portal:
     name: Portal typecheck, tests, build and browser flows
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.55 cannot install browsers on ubuntu-latest (26.04)
     defaults:
       run:
         working-directory: portal
