@@ -140,6 +140,8 @@ Future Backup File Management supports requests to find, archive, retain, and de
 
 All backup artifacts are encrypted before GDCC storage where the backup system supports it. Encryption-key recovery uses a Secrets Vault with Dual-Control Key Recovery by at least two responsible people.
 
+How the project's own systems are backed up to GDCC (client-side `age` encryption, write-only upload accounts, Object Lock, integrity checks and evidence lines) is designed in [the cloud backup design](./2026-11-10-cloud-backup-design.md) and [ADR 0009](../../adr/0009-encrypted-immutable-cloud-backup-to-gdcc.md).
+
 ### Recovery objectives
 
 Wazuh all-in-one and required Portal components must be recoverable within 24 hours. This phase accepts a gap in log collection during recovery and is not high availability.
