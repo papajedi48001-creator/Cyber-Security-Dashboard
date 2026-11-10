@@ -2,33 +2,34 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Back up the Wazuh VM, Portal Application Server and TLS Log Relay daily as client-encrypted, immutable objects in GDCC, and feed every run into the Portal's existing Backup Evidence import.
+**Goal:** Upload HOSxP daily backup files and the project's own systems to GDCC automatically and encrypted, prune the oldest unprotected backups when storage nears the quota, and show logs and a dashboard in the Portal.
 
-**Architecture:** A Python Backup Agent on each host runs configured collect commands, tars the output, encrypts it with `age` to a public key, keeps a Local Backup Copy, uploads to an Object Lock bucket with a write-only credential through `rclone`, and appends a CSV evidence line in the Portal's import format. A weekly Integrity Check downloads the newest bundle per job with a read-only credential and verifies it without decrypting. The Portal is not changed.
+**Architecture:** Python tools on a Backup Gateway and on each project host encrypt with `age` to a public key and upload through `rclone` to an S3-compatible GDCC bucket with a 7-day Object Lock, writing JSON-lines logs and a report object per run. A Capacity Pruner with its own credential deletes oldest-first under protections. The Portal worker pulls reports and usage with a read-only account into new tables and Backup Evidence; the Backup page shows the dashboard.
 
-**Tech Stack:** Python 3 standard library (`unittest`, `tarfile`, `hashlib`, `subprocess`, `json`); `age` 1.x; `rclone` 1.6x with the S3 backend; systemd timers; MinIO with Object Lock for the end-to-end test; GDCC S3-compatible object storage.
+**Tech Stack:** Python 3 standard library (`unittest`, `tarfile`, `hashlib`, `subprocess`, `json`); `age` 1.x; `rclone` 1.6x (S3 backend); systemd timers; MinIO with Object Lock for end-to-end tests; Portal stack (Next.js 15, Prisma 6, MariaDB, Vitest, Playwright).
 
-**Spec:** `docs/superpowers/specs/2026-11-10-cloud-backup-design.md` (decision: `docs/adr/0009-encrypted-immutable-cloud-backup-to-gdcc.md`)
+**Spec:** `docs/superpowers/specs/2026-11-10-cloud-backup-design.md` (decision: `docs/adr/0009-gdcc-cloud-backup-with-capacity-pruning.md`)
 
 ## Global Constraints
 
-- Never upload or keep locally anything that is not an `age` file; the only plaintext written is the manifest.
-- Hosts hold only the `age` recipient (public key) and a write-only upload credential. No code path deletes or overwrites a remote object.
-- Evidence format is exactly `job,result,completed_at,size_bytes,encrypted,retention_until`, times UTC ISO 8601 with `Z`, `result` `SUCCESS` or `FAILED`, `encrypted` `yes` or `no`.
-- `SUCCESS` only when encryption, the Local Backup Copy and the GDCC upload all succeeded.
-- Retention: daily objects lock 35 days and expire 90 days; monthly objects lock and expire 365 days; Local Backup Copy 14 days.
-- Job intervals: `wazuh-config` 24 h, `portal-db` 6 h, `portal-config` 24 h, `log-relay-config` 24 h, `gdcc-integrity` 168 h.
-- No secrets, hostnames, IP addresses, usernames or patient data in object keys, manifests, evidence lines, examples or tests. Commit `*.example` files only.
-- The Portal gets no run, restore or delete control. Creating buckets and installing the agent are production changes that need hospital approval; this plan prepares them.
-- Runbooks are Thai-first.
+- Cloud: GDCC, bucket `project-backup`; Log Archive bucket `log-archive` is never touched by these tools.
+- Nothing is uploaded unless it is an `age` stream; no plaintext copy of a HOSxP file is written anywhere by these tools.
+- Object Lock compliance 7 days; protected minimums `hosxp-daily` 7, other jobs 3; pruning starts at 0.85 of quota, stops at 0.75, deletes at most 0.20 of usage per run; lifecycle backstop 365 days; reports older than 400 days are prunable.
+- Only `capacity_pruner.py` calls a delete. The Portal client exposes no write or delete call.
+- Report format `cloud-backup-report/v1`; log and report fields exactly as in the spec; times UTC ISO 8601 with `Z`; Portal renders Asia/Bangkok.
+- Default schedules (Asia/Bangkok): `hosxp-daily` 02:00 with deadline 06:00, `wazuh-config` 01:00, `portal-config` 01:15, `log-relay-config` 01:30, `portal-db` every 6 h, `capacity-prune` 05:00, `gdcc-integrity` Sunday 06:00.
+- Incident rules: `hosxp-daily` FAILED → P2; other job FAILED twice in a row → P3; `capacity_blocked` → P2; stale → P3. Usage older than 26 h shows "ไม่มีข้อมูลล่าสุด", never a number.
+- No patient data, real names, hostnames, IP addresses, credentials or keys in code, tests, fixtures, logs, reports or examples. Tests use synthetic files only. Commit `*.example` files only.
+- The Portal gains no run, restore or delete control. Installation, the Backup Gateway and bucket creation are production changes needing hospital approval; this plan prepares them.
+- Runbooks Thai-first.
 
 ## Review Focus
 
-- A collect command that hangs must time out (default 1800 s) and produce `FAILED`, not block the timer forever.
-- A run on a host whose clock is not NTP-synchronised must refuse and write nothing, so evidence times are never wrong.
-- Two runs in the same second must not reuse an object key (the second run fails rather than overwriting).
-- Disk full while writing the Local Backup Copy must give `FAILED` and leave no partial file named like a valid bundle.
-- An integrity check that finds no bundle for a job must report `FAILED` for that job, never skip it silently.
+- A HOSxP file still being written when the uploader starts must not be uploaded half-finished (size or mtime changes within 10 minutes → wait).
+- The same HOSxP file seen again the next day (unchanged) must not be uploaded twice and must not count as today's new file.
+- The pruner must never delete the only copy of the newest backup, even when usage is far over quota and every other object is locked.
+- A GDCC listing that fails part-way must make the pruner delete nothing, not prune from a partial view.
+- A report object with unexpected fields, a future time or a 13-digit number must be rejected by the Portal, not stored.
 
 ---
 
@@ -37,169 +38,222 @@
 **Files:**
 - Create: `docs/operations/cloud-backup-readiness-record.md`
 
-Thai record with one row per confirmation from the spec's "Hospital decisions and confirmations": cloud provider, GDCC S3 API, versioning, Object Lock compliance mode, lifecycle rules, data-centre location, cost estimate, two named key holders (role titles only in git), sealed key location (description only), Local Backup Copy datastore, production-change approval reference. Each row has columns `รายการ | ผล | หลักฐานอ้างอิง | ผู้ยืนยัน | วันที่`.
-
-- [ ] **Step 1: Write the record template** with every row empty and a gate sentence: Task 7 starts only when every row is filled and Object Lock is confirmed; if Object Lock is unavailable, stop and revisit ADR 0009.
-- [ ] **Step 2: Run the Markdown link check from CI locally** and expect no broken links.
+- [ ] **Step 1: Write the Thai record template** with columns `รายการ | ผล | หลักฐานอ้างอิง | ผู้ยืนยัน | วันที่` and one row per item in the spec's "Hospital decisions and confirmations". Gate sentence: Task 10 starts only when every row is filled; if GDCC lacks Object Lock, stop and revisit ADR 0009.
+- [ ] **Step 2: Run the CI Markdown link check locally**; expect no broken links.
 - [ ] **Step 3: Commit** `docs: add cloud backup readiness record`.
 
-### Task 1: Agent configuration and object naming
+### Task 1: Shared library — config, naming, logging, reports
+
+**Files:**
+- Create: `infrastructure/backup/cloudbackup/__init__.py`, `config.py`, `naming.py`, `runlog.py`
+- Create: `infrastructure/backup/config.example.json`
+- Test: `infrastructure/backup/tests/test_config.py`, `test_naming.py`, `test_runlog.py`
+- Test helper: `infrastructure/backup/tests/fakes.py` — writes fake `age` (prefixes `age-encryption.org/v1\n`), `rclone` (a temp dir as the remote; supports `rcat`, `cat`, `lsjson --recursive`, `deletefile`, version listing via a sidecar JSON with `retain_until`; can fail on demand) and `timedatectl` onto a temp `PATH`.
+
+**Interfaces:**
+- Produces:
+  - `load_config(path: Path) -> Config`; `Config` fields: `recipient: str`, `remote: str`, `log_dir: Path`, `state_dir: Path`, `jobs: dict[str, JobConfig]`, `hosxp: HosxpConfig | None`, `prune: PruneConfig | None`; raises `ConfigError`.
+  - `HosxpConfig(source_dir: Path, patterns: list[str], settle_minutes: int = 10, deadline: str = "06:00", bwlimit: str | None = None)`
+  - `PruneConfig(quota_bytes: int, high_water: float = 0.85, target: float = 0.75, max_delete_fraction: float = 0.20, min_keep: dict[str, int])`
+  - `JobConfig(name: str, interval_hours: int, collect: list[list[str]] = [], paths: list[str] = [], timeout_seconds: int = 1800)`
+  - `safe_name(name: str) -> bool` (`^[A-Za-z0-9._-]{1,200}$` and no run of 13 digits)
+  - `object_key(job: str, original: str, at: datetime) -> str` → `"<job>/<YYYY>/<MM>/<original>.<YYYYMMDDTHHMMSSZ>.age"`; `manifest_key(object_key: str) -> str` replaces `.age` with `.manifest.json`; `run_id(job: str, at: datetime) -> str` → `"<YYYYMMDDTHHMMSSZ>-<job>"`; `report_key(job: str, run_id: str, at: datetime) -> str` → `"_reports/<job>/<YYYY>/<MM>/<run_id>.json"`
+  - `class RunLog(job, log_dir, clock)` with `event(event: str, **fields) -> None` (one JSON line) and `report(result: str, reason: str | None, objects: list[dict], deleted: list[dict] | None = None, usage: dict | None = None) -> dict` (the `cloud-backup-report/v1` document)
+  - `ntp_synchronised() -> bool` (`timedatectl show -p NTPSynchronized --value` prints `yes`)
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+def test_object_key(self):
+    at = datetime(2026, 11, 10, 19, 0, 2, tzinfo=timezone.utc)
+    self.assertEqual(naming.object_key("hosxp-daily", "hosxp-20261111.sql.gz", at),
+                     "hosxp-daily/2026/11/hosxp-20261111.sql.gz.20261110T190002Z.age")
+def test_report_key(self):   # "_reports/hosxp-daily/2026/11/20261110T190000Z-hosxp-daily.json"
+def test_safe_name_rejects_national_id_and_paths(self):  # "pt-1234567890123.sql", "../x", "a b" -> False
+def test_recipient_must_be_public(self):  # "AGE-SECRET-KEY-1..." -> ConfigError; must match ^age1[0-9a-z]{58}$
+def test_prune_thresholds_validated(self):  # target >= high_water, fraction > 1, quota <= 0 -> ConfigError
+def test_example_config_loads(self):  # intervals and minimums equal Global Constraints
+def test_runlog_line_fields(self):   # keys subset of at, job, run_id, event, object_key, size_bytes, duration_ms, result, reason
+def test_report_shape(self):         # format "cloud-backup-report/v1"; usage and deleted omitted unless given
+```
+
+- [ ] **Step 2: Run** `python3 -m unittest discover -s infrastructure/backup/tests -v`; expect FAIL (package missing).
+- [ ] **Step 3: Implement** the modules with the signatures above.
+- [ ] **Step 4: Run tests**; expect PASS.
+- [ ] **Step 5: Commit** `feat: add cloud backup config, naming and run logs`.
+
+### Task 2: HOSxP Uploader
+
+**Files:**
+- Create: `infrastructure/backup/cloudbackup/upload.py`, `infrastructure/backup/hosxp_uploader.py`
+- Test: `infrastructure/backup/tests/test_hosxp_uploader.py`
+
+**Interfaces:**
+- Consumes: Task 1.
+- Produces:
+  - `upload_encrypted(src: BinaryIO, key: str, config: Config, runlog: RunLog, bwlimit: str | None = None) -> dict` returning `{"key", "size_bytes", "sha256", "encrypted": True}`; raises `UploadError`.
+  - `run(config: Config, clock, sleep) -> dict` (the report); CLI `python3 hosxp_uploader.py --config <path>`; exit 0 SUCCESS, 1 FAILED, 2 refused (no NTP).
+
+- [ ] **Step 1: Write failing tests** (synthetic random-byte files in a temp source dir)
+
+```python
+def test_uploads_new_complete_file_encrypted(self):     # one object + manifest; object starts with age header; report SUCCESS
+def test_done_marker_counts_as_complete(self):
+def test_waits_for_settling_file(self):                 # mtime 2 min ago -> not uploaded; deadline reached -> FAILED no_new_file
+def test_skips_already_uploaded_file(self):             # second run, same name/size/mtime -> nothing uploaded, FAILED no_new_file
+def test_source_unavailable(self):                      # missing dir -> FAILED source_unavailable, nothing uploaded
+def test_retry_uses_new_key_then_fails(self):           # rclone fails 3 times -> 3 distinct keys, FAILED upload_failed
+def test_rejects_unsafe_file_name(self):                # name with 13-digit run -> skipped, log event "unsafe_name"
+def test_no_plaintext_written(self):                    # no file outside source dir contains the source bytes
+def test_never_modifies_source(self):                   # source bytes and mtime unchanged
+def test_report_kept_when_report_upload_fails(self):    # saved in state_dir/pending, sent on next run
+def test_bwlimit_passed_to_rclone(self):
+def test_refuses_without_ntp(self):                     # exit 2, no report
+```
+
+- [ ] **Step 2: Run tests**; expect FAIL.
+- [ ] **Step 3: Implement.** `upload_encrypted`: source → `age -r` (pipe) → Python reads `age` stdout in 1 MiB chunks, updates SHA-256 and writes to `rclone rcat <remote>/<key>` stdin; then uploads the manifest. `run`: poll every 5 minutes until the deadline for complete files; retry backoff 30 s, 120 s, 480 s via injected `sleep`, new key per attempt. State file `state_dir/hosxp-uploaded.json` keyed by name, size and mtime, written only after success.
+- [ ] **Step 4: Run tests**; expect PASS.
+- [ ] **Step 5: Commit** `feat: upload HOSxP daily backup files to GDCC encrypted`.
+
+### Task 3: Backup Agent for project systems
 
 **Files:**
 - Create: `infrastructure/backup/backup_agent.py`
-- Create: `infrastructure/backup/jobs.example.json`
-- Test: `infrastructure/backup/tests/test_config.py`
+- Test: `infrastructure/backup/tests/test_backup_agent.py`
 
 **Interfaces:**
-- Produces:
-  - `@dataclass(frozen=True) class Job: name: str; interval_hours: int; collect: list[list[str]]; paths: list[str]; timeout_seconds: int = 1800`
-  - `@dataclass(frozen=True) class AgentConfig: jobs: list[Job]; recipient: str; local_dir: Path; remote: str; evidence_file: Path; state_file: Path; local_keep_days: int = 14`
-  - `load_config(path: Path) -> AgentConfig` (raises `ConfigError`)
-  - `object_keys(job: str, created: datetime, monthly: bool) -> tuple[str, str]` returning `(bundle_key, manifest_key)`
+- Consumes: Task 1, `upload_encrypted` from Task 2.
+- Produces: `run_job(config: Config, job: str, clock, sleep) -> dict` (report); CLI `python3 backup_agent.py --config <path> --job <name>`, exit codes as Task 2.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write failing tests**: success uploads `<job>/<YYYY>/<MM>/<job>.tar.gz.<ts>.age` with manifest and SUCCESS report; collect non-zero → FAILED `collect_failed`, nothing uploaded; collect timeout (1 s vs `sleep 5`) → FAILED `collect_timeout`; `age` fails → FAILED, temp dir (mode 0700) removed; upload retries as Task 2; refuses without NTP.
+- [ ] **Step 2: Run tests**; expect FAIL.
+- [ ] **Step 3: Implement**: collect into a 0700 temp dir, stream a gzip tar into `upload_encrypted`, remove the temp dir in `finally`.
+- [ ] **Step 4: Run all backup tests**; expect PASS.
+- [ ] **Step 5: Commit** `feat: back up project systems to GDCC`.
 
-```python
-def test_daily_keys(self):
-    t = datetime(2026, 11, 10, 3, 0, 12, tzinfo=timezone.utc)
-    self.assertEqual(agent.object_keys("portal-db", t, monthly=False), (
-        "portal-db/daily/2026/11/portal-db-20261110T030012Z.tar.age",
-        "portal-db/daily/2026/11/portal-db-20261110T030012Z.manifest.json"))
-
-def test_monthly_keys(self):
-    t = datetime(2026, 11, 1, 0, 5, tzinfo=timezone.utc)
-    self.assertEqual(agent.object_keys("portal-db", t, monthly=True)[0],
-        "portal-db/monthly/2026/portal-db-202611.tar.age")
-
-def test_rejects_bad_job_name(self):     # "../x", "a b", 129 chars -> ConfigError
-def test_rejects_private_key_as_recipient(self):  # recipient starting "AGE-SECRET-KEY-" -> ConfigError
-def test_requires_age_public_recipient(self):     # recipient must match ^age1[0-9a-z]{58}$
-def test_example_config_loads(self):     # jobs.example.json loads; job names and intervals match Global Constraints
-```
-
-- [ ] **Step 2: Run** `python3 -m unittest discover -s infrastructure/backup/tests -v` and expect FAIL (module missing).
-- [ ] **Step 3: Implement** `Job`, `AgentConfig`, `ConfigError`, `load_config`, `object_keys`. Job names match `^[A-Za-z0-9._-]{1,128}$` (the Portal's rule). `jobs.example.json` holds the four host jobs with placeholder recipient `age1` + 58 `q` characters, remote `gdcc:project-backup`, and collect commands from the spec's scope table.
-- [ ] **Step 4: Run tests** and expect PASS.
-- [ ] **Step 5: Commit** `feat: add backup agent configuration and object naming`.
-
-### Task 2: Run a backup job and write evidence
+### Task 4: Capacity Pruner
 
 **Files:**
-- Modify: `infrastructure/backup/backup_agent.py`
-- Test: `infrastructure/backup/tests/test_run_job.py`
-- Test helper: `infrastructure/backup/tests/fakes.py` (writes fake `age`, `rclone` and `timedatectl` executables into a temp `PATH`; fake `age` writes `age-encryption.org/v1\n` + input; fake `rclone` copies into a temp "remote" dir and fails on demand or when the target exists)
+- Create: `infrastructure/backup/capacity_pruner.py`
+- Test: `infrastructure/backup/tests/test_capacity_pruner.py`
 
 **Interfaces:**
-- Consumes: Task 1 types and `object_keys`.
-- Produces:
-  - `@dataclass(frozen=True) class Evidence: job: str; result: str; completed_at: datetime; size_bytes: int | None; encrypted: bool; retention_until: datetime | None` with `to_csv() -> str`
-  - `is_age_file(path: Path) -> bool` (first line is exactly `age-encryption.org/v1`)
-  - `run_job(config: AgentConfig, job: Job, clock: Callable[[], datetime] = utcnow) -> Evidence`
-  - CLI: `python3 backup_agent.py --config <path> --job <name>`; exit 0 on `SUCCESS`, 1 on `FAILED`, 2 on refusal (no NTP sync)
+- Consumes: Task 1.
+- Produces: `Version(key: str, version_id: str, job: str, size_bytes: int, uploaded_at: datetime, retain_until: datetime | None, is_manifest: bool)`; `plan_deletions(versions: list[Version], prune: PruneConfig, now: datetime) -> tuple[list[Version], str]` (pure; outcome `no_action` | `pruned` | `capacity_blocked`); `run(config: Config, clock, dry_run: bool) -> dict`; CLI `python3 capacity_pruner.py --config <path> [--dry-run]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write failing tests for `plan_deletions`** (quota 1000 bytes)
 
 ```python
-def test_success_writes_evidence_local_copy_and_remote(self):
-    ev = agent.run_job(cfg, job, clock=fixed(2026, 11, 10, 3, 0, 12))
-    self.assertEqual(ev.to_csv(), "portal-db,SUCCESS,2026-11-10T03:00:12Z,%d,yes,2027-02-08T03:00:12Z" % ev.size_bytes)
-    self.assertTrue(agent.is_age_file(remote / "portal-db/daily/2026/11/portal-db-20261110T030012Z.tar.age"))
-    self.assertEqual(json.loads(manifest.read_text())["sha256"], sha256(bundle))
-    self.assertIn(ev.to_csv(), cfg.evidence_file.read_text())
-
-def test_collect_failure_uploads_nothing(self):        # collect exits 1 -> FAILED, remote empty, local empty
-def test_collect_timeout_is_failure(self):             # timeout_seconds=1, command sleeps 5 -> FAILED
-def test_age_failure_uploads_nothing(self):            # fake age exits 1 -> FAILED, no plaintext tar anywhere
-def test_upload_retries_then_fails(self):              # rclone fails 3 times -> FAILED, local copy kept, 3 attempts
-def test_local_copy_failure_is_failed_but_uploads(self):  # local_dir read-only -> FAILED, remote has bundle, no partial file left
-def test_first_run_of_month_also_uploads_monthly(self):   # second run same month: no monthly upload; state_file records month
-def test_monthly_retention_is_365_days(self):          # monthly evidence line retention_until = +365 d
-def test_existing_key_is_never_overwritten(self):      # same clock twice -> second FAILED, first object unchanged
-def test_refuses_without_ntp_sync(self):               # timedatectl says "no" -> exit 2, no evidence line
-def test_prunes_local_copies_older_than_14_days(self):
-def test_manifest_has_no_secrets_or_hostnames(self):   # keys exactly: job, created_at, bundle_key, size_bytes, sha256, recipient_fingerprint, agent_version, paths
+def test_below_high_water_no_action(self):          # usage 840 -> ([], "no_action")
+def test_deletes_oldest_first_to_target(self):      # usage 900 -> oldest unlocked deleted until <= 750, "pruned"
+def test_object_and_manifest_deleted_together(self):
+def test_locked_versions_never_deleted(self):       # retain_until > now
+def test_newest_min_keep_protected_per_job(self):   # hosxp-daily newest 7 kept even if unlocked and old
+def test_delete_cap_twenty_percent(self):           # usage 1000 -> deletes <= 200 bytes, "capacity_blocked"
+def test_blocked_when_everything_protected(self):   # ([], "capacity_blocked")
+def test_old_reports_prunable_after_400_days(self):
 ```
 
-- [ ] **Step 2: Run tests** and expect FAIL.
-- [ ] **Step 3: Implement `run_job`.** Order: NTP check (`timedatectl show -p NTPSynchronized --value` must print `yes`) → collect into a private temp dir (mode 0700) with per-command timeout → `tarfile` gzip → `age -r <recipient> -o <out>` → `is_age_file` → SHA-256 → manifest → write Local Backup Copy via temp name + `os.replace` → upload bundle then manifest with `rclone copyto --s3-no-check-bucket --s3-no-head` (the upload account cannot read, so uniqueness comes from the timestamped key plus a check that the Local Backup Copy for that key does not exist yet; 3 attempts, backoff 2, 4, 8 s, injectable for tests) → monthly upload when `state_file` has no entry for this job and month → prune local → append evidence. Delete the plaintext temp dir in `finally`. Any exception after the NTP check becomes a `FAILED` line.
-- [ ] **Step 4: Run tests** and expect PASS.
-- [ ] **Step 5: Commit** `feat: run encrypted backup jobs and write evidence`.
+- [ ] **Step 2: Write failing tests for `run`**: listing failure part-way → FAILED `gdcc_unreachable`, zero delete calls; `--dry-run` → report has planned deletions and `"dry_run": true`, zero delete calls; each deletion logs key, job, size, uploaded_at, age_days, reason `capacity`; report `usage` has before and after; only `project-backup` is listed.
+- [ ] **Step 3: Run tests**; expect FAIL.
+- [ ] **Step 4: Implement.** List with `rclone lsjson --recursive --versions --metadata` (retain-until from Object Lock metadata); delete one version with `rclone deletefile --s3-version-id <id>`. Usage counts all versions.
+- [ ] **Step 5: Run tests**; expect PASS.
+- [ ] **Step 6: Commit** `feat: prune oldest unprotected GDCC backups near quota`.
 
-### Task 3: Integrity Check
+### Task 5: Integrity Check
 
 **Files:**
 - Create: `infrastructure/backup/integrity_check.py`
 - Test: `infrastructure/backup/tests/test_integrity_check.py`
 
 **Interfaces:**
-- Consumes: `load_config`, `Evidence`, `is_age_file` from Task 1–2.
-- Produces: `check(remote: str, jobs: list[str], clock) -> tuple[Evidence, list[str]]` returning one `gdcc-integrity` evidence line and a list of problems; CLI `python3 integrity_check.py --config <path>` exits 0 or 1 and appends the line to the evidence file.
+- Produces: `check(config: Config, clock) -> dict` (report for job `gdcc-integrity`; `objects` lists each job with `ok` and `problem`); CLI exit 0 or 1.
 
-- [ ] **Step 1: Write the failing tests** using the fake `rclone` remote dir:
+- [ ] **Step 1: Write failing tests**: all newest objects match manifest SHA-256 and `age` header → SUCCESS; one flipped byte → FAILED naming the job; object without `age` header → FAILED; job with no object → FAILED `no_object`; newest object older than 2 × interval → FAILED `stale`.
+- [ ] **Step 2: Run tests**; expect FAIL.
+- [ ] **Step 3: Implement** with read-only `rclone lsjson` and `rclone cat`, hashing the stream without saving it.
+- [ ] **Step 4: Run tests**; expect PASS.
+- [ ] **Step 5: Commit** `feat: add weekly GDCC integrity check`.
 
-```python
-def test_all_jobs_ok(self):            # newest bundle per job matches manifest sha256 and age header -> SUCCESS, problems == []
-def test_tampered_bundle_fails(self):  # flip one byte -> FAILED, problem names the job
-def test_plaintext_object_fails(self): # object without age header -> FAILED
-def test_missing_job_fails(self):      # no objects for "log-relay-config" -> FAILED, problem "no bundle"
-def test_newest_bundle_older_than_interval_fails(self):  # wazuh-config newest 49 h old -> FAILED
-def test_evidence_line_shape(self):    # "gdcc-integrity,SUCCESS,<now>,,yes," (no size, no retention)
+### Task 6: Object Lock end-to-end test, credentials and CI
+
+**Files:**
+- Create: `infrastructure/backup/tests/test_minio_e2e.py`
+- Create: `infrastructure/backup/policy.upload.example.json`, `policy.pruner.example.json`, `policy.readonly.example.json`, `lifecycle.example.json`
+- Modify: `.github/workflows/ci.yml` (job `cloud-backup`)
+
+- [ ] **Step 1: Write the failing test** (runs only with `BACKUP_E2E=1`): MinIO bucket with lock and compliance retention (1 minute via config override), three users from the policy examples. With real `age` and `rclone` assert: uploader succeeds; upload user cannot delete or list; pruner cannot delete a locked version; after the lock expires the pruner deletes oldest first and usage drops; read-only user cannot write or delete; integrity check passes.
+- [ ] **Step 2: Run** `BACKUP_E2E=1 python3 -m unittest infrastructure/backup/tests/test_minio_e2e.py -v`; expect FAIL (policies missing).
+- [ ] **Step 3: Write the policies** with the rights in the spec's credential table, and `lifecycle.example.json` (expire after 365 days, noncurrent versions 1 day after lock ends).
+- [ ] **Step 4: Run the test**; expect PASS.
+- [ ] **Step 5: Add CI job `cloud-backup`**: install `age` and `rclone`, run unit tests, run the e2e test against a MinIO service container. Push; expect green.
+- [ ] **Step 6: Commit** `test: prove GDCC credentials and Object Lock limits`.
+
+### Task 7: Portal cloud backup connector
+
+**Files:**
+- Modify: `portal/prisma/schema.prisma`; create migration `portal/prisma/migrations/<timestamp>_cloud_backup/migration.sql`
+- Create: `portal/src/lib/backups/cloud/report.ts`, `client.ts`, `sync.ts`; `portal/src/lib/db/cloud-backup-store.ts`
+- Modify: `portal/src/lib/config.ts` (GDCC endpoint, bucket, read-only key id and secret from env, quota bytes), `portal/src/lib/worker/cycles.ts`, `portal/src/worker.ts` (cycle every 15 min, only when configured), `portal/.env.example`
+- Test: `portal/src/lib/backups/cloud/report.test.ts`, `sync.test.ts`, `portal/src/lib/db/cloud-backup-store.db.test.ts`
+
+**Interfaces:**
+- Produces:
+  - Prisma models `CloudBackupRun`, `CloudBackupDeletion`, `CloudStorageSnapshot` with the fields in the spec's "Portal dashboard" section; `runId` unique.
+  - `parseReport(json: unknown, now: Date): CloudBackupReport` (zod, strict; throws `CloudReportError`)
+  - `interface CloudBackupSource { listReportKeys(after: string | null): Promise<string[]>; getReport(key: string): Promise<unknown> }` — S3 `ListObjectsV2` and `GetObject` signed with SigV4 over `node:https`; no other S3 call.
+  - `syncCloudBackups(deps: { source: CloudBackupSource; store: CloudBackupStore; backups: BackupStore; incidents: IncidentService; connector: ConnectorStateStore; clock: () => Date }): Promise<{ imported: number; rejected: number }>`
+
+- [ ] **Step 1: Write failing tests**
+
+```ts
+it("rejects a report with a future finished_at, unknown fields or a 13-digit number", ...)
+it("stores runs, deletions and usage, and advances the checkpoint", ...)
+it("writes Backup Evidence for a registered job as system:gdcc-backup", ...)  // SUCCESS -> SUCCESS, encrypted true
+it("imports a run_id only once", ...)
+it("opens P2 for hosxp-daily FAILED and for capacity_blocked", ...)
+it("opens P3 when another job fails twice in a row", ...)
+it("records lastError and changes nothing when GDCC is unreachable", ...)
+it("source exposes only list and get", () => expect(Object.keys(source).sort()).toEqual(["getReport", "listReportKeys"]))
 ```
 
-- [ ] **Step 2: Run tests** and expect FAIL.
-- [ ] **Step 3: Implement.** List with `rclone lsjson --recursive <remote>/<job>/daily/`, pick the newest `.tar.age` by key timestamp, download bundle and manifest with `rclone copyto` into a temp dir, compare, delete the temp dir. Stale limit is 2 × the job interval from the config.
-- [ ] **Step 4: Run tests** and expect PASS.
-- [ ] **Step 5: Commit** `feat: add weekly backup integrity check`.
+- [ ] **Step 2: Run** `cd portal && npm test -- cloud`; expect FAIL.
+- [ ] **Step 3: Implement** schema and migration (`npx prisma migrate dev --name cloud_backup`), parser, client, store and sync. Evidence goes through the existing `BackupStore.addEvidence`; incidents through the existing incident service using the Global Constraints rules.
+- [ ] **Step 4: Run** `npm test`, the DB test against MariaDB, and `npm run typecheck`; expect PASS.
+- [ ] **Step 5: Commit** `feat: pull GDCC cloud backup reports into the Portal`.
 
-### Task 4: Object Lock end-to-end test and CI
+### Task 8: Portal cloud backup dashboard
 
 **Files:**
-- Create: `infrastructure/backup/tests/test_minio_object_lock.py`
-- Create: `infrastructure/backup/bucket-policy.upload.example.json`
-- Create: `infrastructure/backup/bucket-policy.integrity.example.json`
-- Create: `infrastructure/backup/lifecycle.example.json`
-- Modify: `.github/workflows/ci.yml` (new job `backup`)
+- Modify: `portal/src/app/(app)/backups/page.tsx`, `portal/src/lib/backups/service.ts`, the executive summary under `portal/src/lib/reporting/`
+- Create: `portal/src/lib/backups/cloud/dashboard.ts`
+- Test: `portal/src/lib/backups/cloud/dashboard.test.ts`, `portal/e2e/backups.spec.ts`
 
 **Interfaces:**
-- Consumes: CLI from Tasks 2 and 3.
+- Consumes: Task 7 store.
+- Produces: `cloudBackupDashboard(actor: Principal): Promise<CloudDashboard>` requiring `evidence.read`; `CloudDashboard = { usage: { usedBytes: number; quotaBytes: number; percent: number; level: "normal" | "warning" | "critical"; takenAt: Date } | { stale: true; takenAt: Date | null }; trend: { day: string; usedBytes: number }[]; runs: RunRow[]; deletions: DeletionRow[] }`; executive summary adds `cloudUsagePercent: number | null`.
 
-- [ ] **Step 1: Write the failing test** (skipped unless `BACKUP_E2E=1`): start MinIO with a bucket created `--with-lock` and default compliance retention 35 days, create an upload user with `bucket-policy.upload.example.json` (`s3:PutObject` on `project-backup/*` only) and an integrity user with `bucket-policy.integrity.example.json`; with real `age` and `rclone`, assert: agent run succeeds; `rclone deletefile` with the upload user fails; a second upload to the same key with the upload user leaves the original version retrievable and undeletable (S3 versioning keeps it; Object Lock protects versions, not keys); the integrity check passes on the original and fails once a different newer version exists, so the runbook can recover the locked original version.
-- [ ] **Step 2: Run** `BACKUP_E2E=1 python3 -m unittest infrastructure/backup/tests/test_minio_object_lock.py -v` and expect FAIL (policies missing).
-- [ ] **Step 3: Write the policy and lifecycle examples.** `lifecycle.example.json`: prefix `*/daily/` expire 90 days, prefix `*/monthly/` expire 365 days, noncurrent versions expire 1 day after lock ends.
-- [ ] **Step 4: Run the test** and expect PASS.
-- [ ] **Step 5: Add CI job `backup`**: install `age` and `rclone`, run unit tests, then the MinIO test with `BACKUP_E2E=1` using a MinIO service container. Push the branch and expect the job green.
-- [ ] **Step 6: Commit** `test: prove backup objects are immutable for the upload account`.
+- [ ] **Step 1: Write failing tests**: level thresholds (<75 normal, 75–85 warning, >85 critical); snapshot 27 h old → `stale`; trend has one point per Bangkok day for 30 days; runs and deletions capped at 50 newest; Executive Viewer is forbidden the dashboard and sees only the percentage in the executive summary; Playwright: Security Operator sees the usage card, upload log and pruning log in Thai, and `page.getByRole("button", { name: /ลบ|กู้คืน|สำรองตอนนี้/ })` has count 0.
+- [ ] **Step 2: Run tests**; expect FAIL.
+- [ ] **Step 3: Implement** the service function and the "Cloud Backup (GDCC)" section; trend as an inline SVG line chart using existing styles.
+- [ ] **Step 4: Run** `npm test`, `npm run typecheck`, `npm run build`, `npm run test:e2e -- backups`; expect PASS.
+- [ ] **Step 5: Commit** `feat: show GDCC cloud backup dashboard and logs`.
 
-### Task 5: Restore test record and validator
-
-**Files:**
-- Create: `docs/operations/cloud-backup-restore-test-record.md`
-- Create: `docs/operations/tests/validate_restore_test_record.py`
-- Test: `docs/operations/tests/test_validate_restore_test_record.py`
-
-**Interfaces:**
-- Produces: `validate(markdown: str) -> list[str]` (errors), following `validate_cutover_record.py`.
-
-- [ ] **Step 1: Write failing tests**: a complete synthetic record passes; missing second key holder, total time over 24 h without a corrective-action note, a 13-digit number (national ID pattern), or an IPv4 address each produce an error.
-- [ ] **Step 2: Run** `python3 -m unittest discover -s docs/operations/tests -v` and expect FAIL.
-- [ ] **Step 3: Implement the validator and write the Thai record template**: job, date (UTC), source (local or GDCC), two key-holder roles, per-step minutes, total, checks (SHA-256 match, table counts, Wazuh `logtest_check.py`, Portal login), result, Portal Restore Verification reference.
-- [ ] **Step 4: Run tests** and expect PASS.
-- [ ] **Step 5: Commit** `docs: add cloud backup restore test record`.
-
-### Task 6: Deployment files, runbook and glossary
+### Task 9: Deployment files, runbooks and glossary
 
 **Files:**
-- Create: `infrastructure/backup/backup-agent@.service.example`, `infrastructure/backup/backup-agent@.timer.example`, `infrastructure/backup/integrity-check.timer.example`, `infrastructure/backup/rclone.conf.example`, `infrastructure/backup/README.md`
-- Create: `docs/operations/cloud-backup-runbook.md`
-- Modify: `docs/operations/siem-backup-recovery-runbook.md`, `docs/operations/backup-evidence-runbook.md`, `docs/operations/log-archive-runbook.md`, `CONTEXT.md`
+- Create: `infrastructure/backup/README.md`, `hosxp-uploader.service.example`, `hosxp-uploader.timer.example`, `backup-agent@.service.example`, `backup-agent@.timer.example`, `capacity-pruner.service.example`, `capacity-pruner.timer.example`, `integrity-check.service.example`, `integrity-check.timer.example`, `rclone.conf.example`, `logrotate.example`
+- Create: `docs/operations/cloud-backup-runbook.md`, `docs/operations/cloud-backup-restore-test-record.md`
+- Modify: `docs/operations/backup-evidence-runbook.md`, `docs/operations/siem-backup-recovery-runbook.md`, `docs/operations/log-archive-runbook.md`, `CONTEXT.md`
 - Test: `infrastructure/backup/tests/test_deploy_examples.py`
 
-- [ ] **Step 1: Write failing tests**: every `*.example` file parses (unit files have `[Service]`/`[Timer]`); timers fire every 6 h for `portal-db`, daily for the others, weekly for the integrity check, all with `RandomizedDelaySec`; the service runs as a dedicated user with `ProtectSystem=strict`, `PrivateTmp=yes`, `NoNewPrivileges=yes`; `rclone.conf.example` has placeholder keys only; no file under `infrastructure/backup/` matches an IPv4 address or `AGE-SECRET-KEY-`.
-- [ ] **Step 2: Run tests** and expect FAIL.
-- [ ] **Step 3: Write the example files and the Thai runbook**: install steps per host, key ceremony (generate the `age` identity on an offline machine, store in the Secrets Vault, seal the offline copy, distribute only the recipient), daily evidence import, response when a job is `FAILED` or stale (open P3, P2 for `portal-db` or `wazuh-config` failing over 48 h), restore procedure for the Portal and the relay, key rotation, and quarterly restore tests. Link the Wazuh runbook's GDCC rows to it, change the log archive repository to the `log-archive` bucket, add glossary terms Backup Agent, Local Backup Copy, Backup Upload Account, Integrity Check, Restore Test Host.
-- [ ] **Step 4: Run tests and the Markdown link check** and expect PASS.
-- [ ] **Step 5: Commit** `docs: add cloud backup runbook and deployment examples`.
+- [ ] **Step 1: Write failing tests**: timers use `OnCalendar` with `Asia/Bangkok` and the Global Constraints times plus `Persistent=true`; services run as dedicated users (`cloud-backup`, `cloud-pruner`) with `ProtectSystem=strict`, `PrivateTmp=yes`, `NoNewPrivileges=yes`, and the uploader lists the HOSxP folder in `ReadOnlyPaths=`; only the pruner unit references the pruner credential file; no file under `infrastructure/backup/` matches an IPv4 address or `AGE-SECRET-KEY-`.
+- [ ] **Step 2: Run tests**; expect FAIL.
+- [ ] **Step 3: Write the examples and Thai runbooks**: installation per host, read-only mount of the HOSxP folder, key ceremony (generate the identity offline, store in the Secrets Vault, seal the offline copy, distribute only the recipient), changing upload time and bandwidth, reading logs and the dashboard, response per incident rule, one week of pruner dry-run before enabling, restore steps, quarterly restore tests with the record template. Point the Wazuh runbook's GDCC rows and the evidence runbook at the new runbook (evidence for cloud jobs is now automatic; CSV import stays for other systems). Glossary terms: Backup Gateway, HOSxP Uploader, Capacity Pruner, Capacity Retention Policy, Integrity Check, Restore Test Host.
+- [ ] **Step 4: Run tests and the Markdown link check**; expect PASS.
+- [ ] **Step 5: Commit** `docs: add cloud backup runbooks and deployment examples`.
 
-### Task 7: Rehearsal (hospital-approved, outside git)
+### Task 10: Rehearsal (hospital-approved, outside git)
 
-Only after the readiness record is complete and the hospital approves. Install the agent on each host, run each job once by hand, import the evidence into the Portal and confirm every job shows "สำรองตามรอบ", run the integrity check, and perform the first restore test of `portal-db` and `wazuh-config` from GDCC on the Restore Test Host. Record results in the restore test record and the Portal. The plan's acceptance gate is a passed restore within 24 hours for both jobs.
+Only after the readiness record is complete. Install on the Backup Gateway and hosts; run the pruner in dry-run for one week and review its plan; run every job once by hand; confirm the Portal dashboard shows each job healthy and the usage card filled; restore one HOSxP file (on a HOSxP test server, by the HOSxP administrator), `portal-db` and `wazuh-config` from GDCC under dual control and record the results. Gate: all three restores pass, and the Wazuh and Portal rebuild finishes within 24 hours.
