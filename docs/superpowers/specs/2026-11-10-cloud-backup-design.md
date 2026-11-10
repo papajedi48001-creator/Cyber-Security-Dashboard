@@ -11,11 +11,20 @@ What the hospital asked for (2026-11-10):
 - Check storage; when it nears the limit, delete the oldest files.
 - Keep logs and show a dashboard.
 
+Follow-up from the hospital (2026-11-10): prune at 75% and always keep at least 7 HOSxP files; the HOSxP backup files are on the hospital NAS; GDCC is reached through a FortiClient VPN, so its specification can only be checked over that VPN.
+
+Observed on the NAS (folder `HOSxP_Backup/HOSxP_Backup_Daily`), described here with placeholders only:
+
+- One `MySQL_backup_<db-host>_<hcode>_<YYYYMMDDHHMMSS>.ZIP` per day, about 26–32 GB and growing, finished at about 04:01 Bangkok time; the dump starts at about 00:01.
+- A companion `MySQL_backup_<db-host>_hos_<YYYYMMDDHHMMSS>_log.txt` of about 450 KB, written at about 02:20, and a `backup.ini`.
+- On two days in the first ten days of November the ZIP was only about 55 KB, so the HOSxP backup itself failed silently on those days. The uploader must catch this.
+
 The parent design already says backups are encrypted and sent to GDCC and that the Portal shows Backup Evidence read-only. This design adds the uploader, the capacity pruner, the logs and the dashboard, and also covers the project's own systems so Wazuh and the Portal can be rebuilt within 24 hours.
 
 Assumptions (to be confirmed in the readiness record):
 
-- HOSxP already writes its daily backup files (for example a database dump) to a folder the hospital controls. This design does not change how those files are made.
+- The HOSxP backup keeps writing its files to the NAS as above. This design does not change how those files are made.
+- "75%" is the point where pruning starts; pruning stops at 65% so it does not run every day.
 - The GDCC allocation has a fixed quota in bytes that the hospital knows; S3 does not report quotas, so the quota is configured.
 
 Success means:
@@ -29,12 +38,12 @@ Success means:
 
 | Job | Runs on | Contents | Schedule (Asia/Bangkok, configurable) |
 |---|---|---|---|
-| `hosxp-daily` | Backup Gateway | New HOSxP backup files from the read-only source folder | Daily 02:00 |
+| `hosxp-daily` | Backup Gateway | New HOSxP ZIP and its `_log.txt` from the NAS folder, mounted read-only | Daily 04:30, retry until 07:00 |
 | `wazuh-config` | Wazuh VM | `/var/ossec/etc/`, certificates and keystores, indexer security config, ISM policies and templates | Daily 01:00 |
 | `portal-db` | Portal Application Server | `mariadb-dump --single-transaction --routines --triggers` of the Portal Security Database | Every 6 h |
 | `portal-config` | Portal Application Server | Application config without secrets, reverse-proxy config, systemd units, release identifier | Daily 01:15 |
 | `log-relay-config` | TLS Log Relay | syslog-ng config, allowed sources, TLS certificates | Daily 01:30 |
-| `capacity-prune` | Backup Gateway | Usage check and pruning | Daily 05:00, after the upload window |
+| `capacity-prune` | Backup Gateway | Usage check and pruning, with room reserved for the next HOSxP file | Daily 04:15, before the upload |
 | `gdcc-integrity` | Portal Application Server | Weekly integrity check of the newest object of each job | Sunday 06:00 |
 
 The Wazuh Log Archive keeps its own snapshot repository in a separate GDCC bucket `log-archive` ([log-archive-runbook.md](../../operations/log-archive-runbook.md)); the pruner never touches it.
@@ -45,9 +54,9 @@ Out of scope: running or changing the HOSxP backup itself, other hospital system
 
 ```text
 HOSxP backup (existing) --writes--> backup folder
-                                         | read-only mount
+                                    (NAS)| read-only SMB/NFS mount, read-only NAS account
                                          v
-                              Backup Gateway (new small VM)
+                              Backup Gateway (new small VM, VPN path to GDCC)
                               - hosxp-uploader  (daily, configured time)
                               - capacity-pruner (after upload window)
                                          |
@@ -87,22 +96,27 @@ Wazuh VM / Portal App Server / Log Relay |   each: backup-agent (own schedule)
 ## HOSxP Uploader
 
 1. At the configured time the uploader refuses to run unless the clock is NTP-synchronised.
-2. It lists files in the source folder that match the configured patterns (for example `*.sql.gz`, `*.7z`).
-3. A file is complete when a `<name>.done` marker exists, or when its size and modification time have not changed for 10 minutes. Incomplete files are retried until the configured deadline (default 06:00).
+2. It lists files in the source folder that match the configured patterns (default `MySQL_backup_*.ZIP` as the backup file and `MySQL_backup_*_log.txt` as its companion log).
+3. A file is complete when a `<name>.done` marker exists, or when its size and modification time have not changed for 10 minutes. Incomplete files are retried every 5 minutes until the configured deadline (default 07:00).
 4. A file already uploaded (same name, size and modification time in the state file) is skipped.
 5. Each new file streams through `age -r <recipient>` into `rclone rcat` so no plaintext copy is made; the uploader hashes the encrypted stream and writes a manifest (original name, size, encrypted size, SHA-256, upload time, recipient fingerprint). Uploads respect a configured bandwidth limit.
-6. If no new complete file appears by the deadline, the run result is `FAILED` with reason `no_new_file`: this catches a failed HOSxP backup.
-7. It writes a JSON log line per file and a run report object, then exits 0 on success or 1 on failure.
+6. If no new complete ZIP appears by the deadline, the run result is `FAILED` with reason `no_new_file`: this catches a HOSxP backup that did not run.
+7. If the new ZIP is smaller than half the median size of the last 7 uploaded ZIPs, it is still uploaded but marked `anomaly: true` in its manifest, and the run result is `FAILED` with reason `size_anomaly`: this catches a HOSxP backup that ran but produced a near-empty file, as seen on the NAS. The companion log is uploaded so staff can see why.
+8. It writes a JSON log line per file and a run report object, then exits 0 on success or 1 on failure.
 
-Object key: `hosxp-daily/<YYYY>/<MM>/<original-name>.<YYYYMMDDTHHMMSSZ>.age`. File names are kept because staff need them to find a backup; the uploader rejects names that contain a 13-digit number or characters outside `A-Za-z0-9._-`.
+Object key: `hosxp-daily/<YYYY>/<MM>/<original-name>.<YYYYMMDDTHHMMSSZ>.age`. File names are kept because staff need them to find a backup; the uploader rejects names that contain a run of exactly 13 digits (the national ID pattern; the 14-digit timestamps in HOSxP names are allowed) or characters outside `A-Za-z0-9._-`.
+
+At about 32 GB a day the upload takes roughly 45 minutes at 100 Mbit/s or 90 minutes at 50 Mbit/s. The bandwidth limit is a timetable (default: unlimited until 07:30, then 20 Mbit/s) so an upload that runs into working hours does not slow clinical traffic.
 
 ## Capacity Pruner
 
-Inputs from config: `quota_bytes`, `high_water` (0.85), `target` (0.75), `max_delete_fraction` (0.20), `min_keep` per job (`hosxp-daily`: 7, others: 3).
+Inputs from config: `quota_bytes`, `high_water` (0.75, set by the hospital), `target` (0.65), `max_delete_fraction` (0.20), `min_keep` per job (`hosxp-daily`: 7, set by the hospital; others: 3), `reserve_bytes` (default: the largest of the last 7 HOSxP ZIPs, about 32 GB).
+
+The pruner runs before the upload, so usage is measured as current usage plus `reserve_bytes`; there is then room for today's file without passing the high-water mark.
 
 1. List every object version in `project-backup` with size, upload time and Object Lock retain-until date. Usage is the sum of all version sizes, because old versions still use quota.
 2. If usage is below `high_water`, record `no_action` and stop.
-3. Candidates are versions whose lock has expired and that are not among the newest `min_keep` objects of their job. Reports under `_reports/` older than 400 days are candidates too.
+3. Candidates are versions whose lock has expired and that are not among the newest `min_keep` objects of their job. Objects marked `anomaly: true` do not count toward `min_keep`, so seven near-empty ZIPs can never cause the last good backups to be deleted. Reports under `_reports/` older than 400 days are candidates too.
 4. Delete candidates oldest first, each with its manifest, until usage is at or below `target`, or the bytes deleted reach `max_delete_fraction` of usage.
 5. If usage is still above `high_water`, record `capacity_blocked`.
 6. Every deletion is a log line and an entry in the run report: object key, job, size, upload time, age in days and reason `capacity`. `--dry-run` prints the same plan without deleting.
@@ -137,7 +151,7 @@ New tables (Prisma): `CloudBackupRun` (job, run_id unique, started_at, finished_
 
 The Backup page gains a "Cloud Backup (GDCC)" section, Thai-first, times in Asia/Bangkok:
 
-- Usage card: used / quota and percentage, coloured normal below 75%, warning 75–85%, critical above 85%; shows "ไม่มีข้อมูลล่าสุด" when the newest snapshot is older than 26 hours instead of a number.
+- Usage card: used / quota and percentage, coloured normal below 65%, warning 65–75%, critical above 75%; shows "ไม่มีข้อมูลล่าสุด" when the newest snapshot is older than 26 hours instead of a number.
 - 30-day usage trend.
 - Per-job table: last successful upload, size, consecutive failures, health from Backup Evidence.
 - Upload log: latest 50 runs with result and reason.
@@ -161,6 +175,8 @@ Incidents are opened through the existing incident service: `hosxp-daily` `FAILE
 |---|---|
 | Source folder not mounted or unreadable | `FAILED`, reason `source_unavailable`; nothing uploaded |
 | No new complete HOSxP file by the deadline | `FAILED`, reason `no_new_file` |
+| New HOSxP ZIP much smaller than usual | Uploaded and marked, `FAILED`, reason `size_anomaly`, P2 incident |
+| VPN path to GDCC down | `FAILED`, reason `gdcc_unreachable`; nothing deleted; retried next run |
 | `age` or `rclone` fails mid-stream | Retry the file up to 3 times (backoff 30 s, 2 min, 8 min); each retry uses a new timestamped key; then `FAILED`, reason `upload_failed` |
 | Report upload fails | Keep the report locally and upload it on the next run; the Portal shows the job stale meanwhile |
 | GDCC unreachable for the pruner | `FAILED`, reason `gdcc_unreachable`; nothing deleted |
@@ -179,16 +195,17 @@ Restore tests run at least every 90 days per job and are recorded as Restore Ver
 
 ## Testing
 
-- Python `unittest` with fake `age`, `rclone` and `timedatectl` executables on `PATH` and synthetic files only: completion detection, skip of uploaded files, `no_new_file`, retries, no plaintext anywhere, name rules, report contents, pruning order, protections, delete cap, `capacity_blocked`, dry-run.
+- Python `unittest` with fake `age`, `rclone` and `timedatectl` executables on `PATH` and synthetic files only: completion detection, skip of uploaded files, `no_new_file`, `size_anomaly`, anomalies excluded from `min_keep`, reserve for the next file, retries, no plaintext anywhere, name rules, report contents, pruning order, protections, delete cap, `capacity_blocked`, dry-run.
 - End-to-end against MinIO with Object Lock: upload account cannot delete; pruner cannot delete locked versions; pruning frees space oldest first.
 - Portal Vitest: report parsing and validation, evidence creation, incident rules, stale usage, executive redaction; DB test for the new tables; Playwright for the dashboard by role.
 
 ## Hospital decisions and confirmations
 
 - Cloud provider: GDCC (decided 2026-11-10).
-- From GDCC: S3 API, versioning, Object Lock compliance mode, quota, location, bandwidth, cost.
-- HOSxP backup folder location, file name pattern, size, the time the daily file is finished, and whether a `.done` marker can be written.
-- Upload time, deadline and bandwidth limit.
-- Retention policy: thresholds, protected minimums, and confirmation that they meet record-retention obligations.
+- From GDCC, checked over the FortiClient VPN: S3 API, versioning, Object Lock compliance mode, quota, location, bandwidth, cost, and whether the storage endpoint itself is reachable only through the VPN.
+- If the endpoint needs the VPN, a permanent path for the Backup Gateway and the Portal: preferably a site-to-site IPsec tunnel from the Sophos Firewall to GDCC (a production change), otherwise `openfortivpn` on the Backup Gateway. FortiClient on a person's PC is not enough for unattended uploads.
+- HOSxP files on the NAS: folder and name pattern known (above); a read-only NAS account for the gateway; internet upload bandwidth.
+- Upload time (default 04:30), deadline (07:00) and bandwidth timetable.
+- Retention policy: pruning at 75% and keeping at least 7 HOSxP files (decided 2026-11-10); target 65% to confirm; confirmation that this meets record-retention obligations. Note that 7 files are about 224 GB, so the quota must be well above 300 GB.
 - Two key holders and the sealed offline key location.
 - Backup Gateway VM and installation approvals.

@@ -14,11 +14,11 @@
 
 - Cloud: GDCC, bucket `project-backup`; Log Archive bucket `log-archive` is never touched by these tools.
 - Nothing is uploaded unless it is an `age` stream; no plaintext copy of a HOSxP file is written anywhere by these tools.
-- Object Lock compliance 7 days; protected minimums `hosxp-daily` 7, other jobs 3; pruning starts at 0.85 of quota, stops at 0.75, deletes at most 0.20 of usage per run; lifecycle backstop 365 days; reports older than 400 days are prunable.
+- Object Lock compliance 7 days; protected minimums `hosxp-daily` 7, other jobs 3; pruning starts at 0.75 of quota (current usage plus `reserve_bytes`), stops at 0.65, deletes at most 0.20 of usage per run; lifecycle backstop 365 days; reports older than 400 days are prunable.
 - Only `capacity_pruner.py` calls a delete. The Portal client exposes no write or delete call.
 - Report format `cloud-backup-report/v1`; log and report fields exactly as in the spec; times UTC ISO 8601 with `Z`; Portal renders Asia/Bangkok.
-- Default schedules (Asia/Bangkok): `hosxp-daily` 02:00 with deadline 06:00, `wazuh-config` 01:00, `portal-config` 01:15, `log-relay-config` 01:30, `portal-db` every 6 h, `capacity-prune` 05:00, `gdcc-integrity` Sunday 06:00.
-- Incident rules: `hosxp-daily` FAILED → P2; other job FAILED twice in a row → P3; `capacity_blocked` → P2; stale → P3. Usage older than 26 h shows "ไม่มีข้อมูลล่าสุด", never a number.
+- Default schedules (Asia/Bangkok): `hosxp-daily` 04:30 with deadline 07:00, `wazuh-config` 01:00, `portal-config` 01:15, `log-relay-config` 01:30, `portal-db` every 6 h, `capacity-prune` 04:15, `gdcc-integrity` Sunday 06:00.
+- Incident rules: `hosxp-daily` FAILED → P2; other job FAILED twice in a row → P3; `capacity_blocked` → P2; stale → P3. Usage levels: normal below 65%, warning 65–75%, critical above 75%. `size_anomaly` → P2. Usage older than 26 h shows "ไม่มีข้อมูลล่าสุด", never a number.
 - No patient data, real names, hostnames, IP addresses, credentials or keys in code, tests, fixtures, logs, reports or examples. Tests use synthetic files only. Commit `*.example` files only.
 - The Portal gains no run, restore or delete control. Installation, the Backup Gateway and bucket creation are production changes needing hospital approval; this plan prepares them.
 - Runbooks Thai-first.
@@ -30,6 +30,7 @@
 - The pruner must never delete the only copy of the newest backup, even when usage is far over quota and every other object is locked.
 - A GDCC listing that fails part-way must make the pruner delete nothing, not prune from a partial view.
 - A report object with unexpected fields, a future time or a 13-digit number must be rejected by the Portal, not stored.
+- Seven near-empty HOSxP ZIPs in a row must not let the pruner delete the last good backups (anomalous objects do not count toward `min_keep`).
 
 ---
 
@@ -53,10 +54,10 @@
 **Interfaces:**
 - Produces:
   - `load_config(path: Path) -> Config`; `Config` fields: `recipient: str`, `remote: str`, `log_dir: Path`, `state_dir: Path`, `jobs: dict[str, JobConfig]`, `hosxp: HosxpConfig | None`, `prune: PruneConfig | None`; raises `ConfigError`.
-  - `HosxpConfig(source_dir: Path, patterns: list[str], settle_minutes: int = 10, deadline: str = "06:00", bwlimit: str | None = None)`
-  - `PruneConfig(quota_bytes: int, high_water: float = 0.85, target: float = 0.75, max_delete_fraction: float = 0.20, min_keep: dict[str, int])`
+  - `HosxpConfig(source_dir: Path, backup_pattern: str = "MySQL_backup_*.ZIP", log_pattern: str = "MySQL_backup_*_log.txt", settle_minutes: int = 10, deadline: str = "07:00", anomaly_ratio: float = 0.5, bwlimit: str | None = "07:30,20M")`
+  - `PruneConfig(quota_bytes: int, high_water: float = 0.75, target: float = 0.65, max_delete_fraction: float = 0.20, min_keep: dict[str, int], reserve_bytes: int | None = None)` (`None` = largest of the last 7 HOSxP objects)
   - `JobConfig(name: str, interval_hours: int, collect: list[list[str]] = [], paths: list[str] = [], timeout_seconds: int = 1800)`
-  - `safe_name(name: str) -> bool` (`^[A-Za-z0-9._-]{1,200}$` and no run of 13 digits)
+  - `safe_name(name: str) -> bool` (`^[A-Za-z0-9._-]{1,200}$` and no run of exactly 13 digits, `(?<!\d)\d{13}(?!\d)`)
   - `object_key(job: str, original: str, at: datetime) -> str` → `"<job>/<YYYY>/<MM>/<original>.<YYYYMMDDTHHMMSSZ>.age"`; `manifest_key(object_key: str) -> str` replaces `.age` with `.manifest.json`; `run_id(job: str, at: datetime) -> str` → `"<YYYYMMDDTHHMMSSZ>-<job>"`; `report_key(job: str, run_id: str, at: datetime) -> str` → `"_reports/<job>/<YYYY>/<MM>/<run_id>.json"`
   - `class RunLog(job, log_dir, clock)` with `event(event: str, **fields) -> None` (one JSON line) and `report(result: str, reason: str | None, objects: list[dict], deleted: list[dict] | None = None, usage: dict | None = None) -> dict` (the `cloud-backup-report/v1` document)
   - `ntp_synchronised() -> bool` (`timedatectl show -p NTPSynchronized --value` prints `yes`)
@@ -70,6 +71,7 @@ def test_object_key(self):
                      "hosxp-daily/2026/11/hosxp-20261111.sql.gz.20261110T190002Z.age")
 def test_report_key(self):   # "_reports/hosxp-daily/2026/11/20261110T190000Z-hosxp-daily.json"
 def test_safe_name_rejects_national_id_and_paths(self):  # "pt-1234567890123.sql", "../x", "a b" -> False
+def test_safe_name_allows_hosxp_timestamp(self):        # "MySQL_backup_db-host_00000_20261110000104.ZIP" -> True
 def test_recipient_must_be_public(self):  # "AGE-SECRET-KEY-1..." -> ConfigError; must match ^age1[0-9a-z]{58}$
 def test_prune_thresholds_validated(self):  # target >= high_water, fraction > 1, quota <= 0 -> ConfigError
 def test_example_config_loads(self):  # intervals and minimums equal Global Constraints
@@ -100,6 +102,8 @@ def test_report_shape(self):         # format "cloud-backup-report/v1"; usage an
 def test_uploads_new_complete_file_encrypted(self):     # one object + manifest; object starts with age header; report SUCCESS
 def test_done_marker_counts_as_complete(self):
 def test_waits_for_settling_file(self):                 # mtime 2 min ago -> not uploaded; deadline reached -> FAILED no_new_file
+def test_uploads_companion_log(self):                   # matching _log.txt uploaded too; a log alone is not a new backup
+def test_small_zip_is_size_anomaly(self):               # last 7 ZIPs ~1 MB, new ZIP 50 KB -> uploaded, manifest anomaly true, FAILED size_anomaly
 def test_skips_already_uploaded_file(self):             # second run, same name/size/mtime -> nothing uploaded, FAILED no_new_file
 def test_source_unavailable(self):                      # missing dir -> FAILED source_unavailable, nothing uploaded
 def test_retry_uses_new_key_then_fails(self):           # rclone fails 3 times -> 3 distinct keys, FAILED upload_failed
@@ -145,12 +149,14 @@ def test_refuses_without_ntp(self):                     # exit 2, no report
 - [ ] **Step 1: Write failing tests for `plan_deletions`** (quota 1000 bytes)
 
 ```python
-def test_below_high_water_no_action(self):          # usage 840 -> ([], "no_action")
-def test_deletes_oldest_first_to_target(self):      # usage 900 -> oldest unlocked deleted until <= 750, "pruned"
+def test_below_high_water_no_action(self):          # usage 740, reserve 0 -> ([], "no_action")
+def test_deletes_oldest_first_to_target(self):      # usage 800 -> oldest unlocked deleted until <= 650, "pruned"
 def test_object_and_manifest_deleted_together(self):
 def test_locked_versions_never_deleted(self):       # retain_until > now
 def test_newest_min_keep_protected_per_job(self):   # hosxp-daily newest 7 kept even if unlocked and old
-def test_delete_cap_twenty_percent(self):           # usage 1000 -> deletes <= 200 bytes, "capacity_blocked"
+def test_anomalies_do_not_count_toward_min_keep(self):  # 7 newest anomalous + 7 good older -> the 7 good kept
+def test_reserve_counts_toward_usage(self):        # usage 700 + reserve 100 >= 750 -> prunes to <= 650 - reserve
+def test_delete_cap_twenty_percent(self):           # usage 1000 -> deletes <= 200 bytes, still > 750, "capacity_blocked"
 def test_blocked_when_everything_protected(self):   # ([], "capacity_blocked")
 def test_old_reports_prunable_after_400_days(self):
 ```
@@ -212,7 +218,7 @@ it("rejects a report with a future finished_at, unknown fields or a 13-digit num
 it("stores runs, deletions and usage, and advances the checkpoint", ...)
 it("writes Backup Evidence for a registered job as system:gdcc-backup", ...)  // SUCCESS -> SUCCESS, encrypted true
 it("imports a run_id only once", ...)
-it("opens P2 for hosxp-daily FAILED and for capacity_blocked", ...)
+it("opens P2 for hosxp-daily FAILED (including size_anomaly) and for capacity_blocked", ...)
 it("opens P3 when another job fails twice in a row", ...)
 it("records lastError and changes nothing when GDCC is unreachable", ...)
 it("source exposes only list and get", () => expect(Object.keys(source).sort()).toEqual(["getReport", "listReportKeys"]))
@@ -234,7 +240,7 @@ it("source exposes only list and get", () => expect(Object.keys(source).sort()).
 - Consumes: Task 7 store.
 - Produces: `cloudBackupDashboard(actor: Principal): Promise<CloudDashboard>` requiring `evidence.read`; `CloudDashboard = { usage: { usedBytes: number; quotaBytes: number; percent: number; level: "normal" | "warning" | "critical"; takenAt: Date } | { stale: true; takenAt: Date | null }; trend: { day: string; usedBytes: number }[]; runs: RunRow[]; deletions: DeletionRow[] }`; executive summary adds `cloudUsagePercent: number | null`.
 
-- [ ] **Step 1: Write failing tests**: level thresholds (<75 normal, 75–85 warning, >85 critical); snapshot 27 h old → `stale`; trend has one point per Bangkok day for 30 days; runs and deletions capped at 50 newest; Executive Viewer is forbidden the dashboard and sees only the percentage in the executive summary; Playwright: Security Operator sees the usage card, upload log and pruning log in Thai, and `page.getByRole("button", { name: /ลบ|กู้คืน|สำรองตอนนี้/ })` has count 0.
+- [ ] **Step 1: Write failing tests**: level thresholds (<65 normal, 65–75 warning, >75 critical); snapshot 27 h old → `stale`; trend has one point per Bangkok day for 30 days; runs and deletions capped at 50 newest; Executive Viewer is forbidden the dashboard and sees only the percentage in the executive summary; Playwright: Security Operator sees the usage card, upload log and pruning log in Thai, and `page.getByRole("button", { name: /ลบ|กู้คืน|สำรองตอนนี้/ })` has count 0.
 - [ ] **Step 2: Run tests**; expect FAIL.
 - [ ] **Step 3: Implement** the service function and the "Cloud Backup (GDCC)" section; trend as an inline SVG line chart using existing styles.
 - [ ] **Step 4: Run** `npm test`, `npm run typecheck`, `npm run build`, `npm run test:e2e -- backups`; expect PASS.
@@ -250,7 +256,7 @@ it("source exposes only list and get", () => expect(Object.keys(source).sort()).
 
 - [ ] **Step 1: Write failing tests**: timers use `OnCalendar` with `Asia/Bangkok` and the Global Constraints times plus `Persistent=true`; services run as dedicated users (`cloud-backup`, `cloud-pruner`) with `ProtectSystem=strict`, `PrivateTmp=yes`, `NoNewPrivileges=yes`, and the uploader lists the HOSxP folder in `ReadOnlyPaths=`; only the pruner unit references the pruner credential file; no file under `infrastructure/backup/` matches an IPv4 address or `AGE-SECRET-KEY-`.
 - [ ] **Step 2: Run tests**; expect FAIL.
-- [ ] **Step 3: Write the examples and Thai runbooks**: installation per host, read-only mount of the HOSxP folder, key ceremony (generate the identity offline, store in the Secrets Vault, seal the offline copy, distribute only the recipient), changing upload time and bandwidth, reading logs and the dashboard, response per incident rule, one week of pruner dry-run before enabling, restore steps, quarterly restore tests with the record template. Point the Wazuh runbook's GDCC rows and the evidence runbook at the new runbook (evidence for cloud jobs is now automatic; CSV import stays for other systems). Glossary terms: Backup Gateway, HOSxP Uploader, Capacity Pruner, Capacity Retention Policy, Integrity Check, Restore Test Host.
+- [ ] **Step 3: Write the examples and Thai runbooks**: installation per host, read-only SMB/NFS mount of the NAS folder `HOSxP_Backup/HOSxP_Backup_Daily` with a read-only NAS account, the VPN path to GDCC (site-to-site IPsec on Sophos preferred, `openfortivpn` otherwise), key ceremony (generate the identity offline, store in the Secrets Vault, seal the offline copy, distribute only the recipient), changing upload time and bandwidth, reading logs and the dashboard, response per incident rule, one week of pruner dry-run before enabling, restore steps, quarterly restore tests with the record template. Point the Wazuh runbook's GDCC rows and the evidence runbook at the new runbook (evidence for cloud jobs is now automatic; CSV import stays for other systems). Glossary terms: Backup Gateway, HOSxP Uploader, Capacity Pruner, Capacity Retention Policy, Integrity Check, Restore Test Host.
 - [ ] **Step 4: Run tests and the Markdown link check**; expect PASS.
 - [ ] **Step 5: Commit** `docs: add cloud backup runbooks and deployment examples`.
 
