@@ -7,5 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const session = await currentSession();
   if (!session) redirect("/login");
-  return <AppShell session={session}>{children}</AppShell>;
+  // Every module is enabled until the System Settings "โมดูล" page stores overrides.
+  return (
+    <AppShell session={session} moduleSettings={{}}>
+      {children}
+    </AppShell>
+  );
 }

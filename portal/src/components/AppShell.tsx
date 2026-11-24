@@ -1,34 +1,29 @@
-import Link from "next/link";
-import { can, ROLE_LABELS, type Permission } from "@/lib/auth/authorize";
+import { can, ROLE_LABELS } from "@/lib/auth/authorize";
 import type { ValidSession } from "@/lib/auth/service";
+import { settingsNavigation, visibleModules, type ModuleSettings } from "@/lib/modules/registry";
+import { NavLink } from "./NavLink";
 
-const NAV: { href: string; label: string; permission: Permission }[] = [
-  { href: "/overview", label: "ภาพรวม", permission: "incident.read" },
-  { href: "/incidents", label: "Incident", permission: "incident.read" },
-  { href: "/sources", label: "แหล่ง Log", permission: "source.read" },
-  { href: "/assets", label: "Asset", permission: "asset.read" },
-  { href: "/backups", label: "Backup", permission: "evidence.read" },
-  { href: "/port-monitor", label: "พอร์ต", permission: "evidence.read" },
-  { href: "/web-application-firewall", label: "WAF", permission: "evidence.read" },
-  { href: "/duo", label: "Duo", permission: "evidence.read" },
-  { href: "/executive", label: "รายงานผู้บริหาร", permission: "executive.read" },
-  { href: "/admin/users", label: "ผู้ใช้", permission: "user.manage" },
-];
-
-export function AppShell({ session, children }: { session: ValidSession; children: React.ReactNode }) {
+export function AppShell({
+  session,
+  moduleSettings,
+  children,
+}: {
+  session: ValidSession;
+  moduleSettings: ModuleSettings;
+  children: React.ReactNode;
+}) {
+  const role = session.user.role;
+  const modules = visibleModules(role, moduleSettings);
+  const settings = settingsNavigation(role);
   return (
-    <>
+    <div className="shell">
       <header className="top">
-        <strong>Security Operations Portal</strong>
-        <nav>
-          {NAV.filter((item) => can(session.user, item.permission)).map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true">W</span>
+          <span>Waritchaphum Security Dashboard</span>
+        </span>
         <span className="who">
-          {session.user.displayName} ({ROLE_LABELS[session.user.role]})
+          {session.user.displayName} · {ROLE_LABELS[role]}
         </span>
         <form action="/logout" method="post">
           <input type="hidden" name="csrf" value={session.csrfToken} />
@@ -37,8 +32,27 @@ export function AppShell({ session, children }: { session: ValidSession; childre
           </button>
         </form>
       </header>
+      <nav className="rail" aria-label="เมนูหลัก">
+        {can(session.user, "incident.read") && <NavLink href="/overview">ภาพรวม</NavLink>}
+        <div className="rail-group">โมดูล</div>
+        {modules.map((m) => (
+          <NavLink key={m.id} href={m.href}>
+            {m.name}
+          </NavLink>
+        ))}
+        {settings.length > 0 && (
+          <>
+            <div className="rail-group">ตั้งค่าระบบ</div>
+            {settings.map((l) => (
+              <NavLink key={l.href} href={l.href}>
+                {l.label}
+              </NavLink>
+            ))}
+          </>
+        )}
+      </nav>
       <main>{children}</main>
-    </>
+    </div>
   );
 }
 
