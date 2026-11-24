@@ -1,0 +1,52 @@
+# Local test install of the Security Operations Portal (Waritchaphum Security Dashboard).
+# Not a production deployment. Secrets live in .env.docker (never committed);
+# create it from .env.docker.example with setup.ps1 or setup.sh.
+name: wsd-local
+
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    env_file: .env.docker
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  portal:
+    build: ../../portal
+    image: wsd-portal:local
+    restart: unless-stopped
+    env_file: .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Off by default: without a reachable Wazuh Indexer it only logs connection
+  # errors. Start with: docker compose --profile worker up -d
+  worker:
+    image: wsd-portal:local
+    profiles: ["worker"]
+    restart: unless-stopped
+    env_file: .env.docker
+    command: ["npm", "run", "worker"]
+    depends_on:
+      portal:
+        condition: service_started
+
+  # The Portal trusts only X-Real-IP set by a reverse proxy (portal/src/lib/auth/network.ts).
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - portal
+
+volumes:
+  db-data:
