@@ -24,6 +24,10 @@ Linux หรือ macOS: ใช้ `./setup.sh` แทน `setup.ps1`
 
 ครั้งแรกจะ build นานหลายนาที เมื่อ `docker compose ps` แสดงว่า portal ทำงานแล้วก็เปิดเว็บได้
 
+ถ้าพอร์ต 8080 มีโปรแกรมอื่นใช้อยู่แล้ว (เช่น BlueStacks) ให้เปลี่ยนพอร์ตตอนเปิดระบบ เช่น `$env:PORTAL_PORT=8088; docker compose up -d` ใน PowerShell หรือ `PORTAL_PORT=8088 docker compose up -d` ใน Linux แล้วเปิดเว็บที่พอร์ตนั้นแทน
+
+ค่า `WAZUH_*` และ `TRUSTED_NETWORKS` ใน `.env.docker` ต้องมีค่าเสมอ ถ้าว่างเว็บจะไม่ยอมเริ่มทำงาน ไฟล์ตัวอย่างใส่ค่าสมมติไว้ให้แล้ว
+
 ## สร้างผู้ดูแลระบบคนแรก
 
 ```powershell

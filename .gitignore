@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!deploy/local/.env.docker.example
 *.pem
 *.key
 *.crt
