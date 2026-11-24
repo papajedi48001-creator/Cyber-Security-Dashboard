@@ -204,6 +204,38 @@ _Avoid_: การสแกนเครือข่ายภายใน, กา
 รายการพอร์ตหรือบริการที่อนุญาตให้เข้าถึงจาก Internet โดยมีผู้รับผิดชอบ เหตุผล และวันหมดอายุ เมื่อหมดอายุต้องกลับมาทบทวน
 _Avoid_: Allowlist ถาวร
 
+**Waritchaphum Security Dashboard**:
+ชื่อผลิตภัณฑ์ที่ผู้ใช้เห็นของ Security Operations Portal ในเอกสารและโค้ดยังเรียกว่า Portal (ADR 0011)
+_Avoid_: Security Operations Dashboard
+
+**Module**:
+ส่วนงานหนึ่งของ Portal เช่น Cloud Backup หรือ MariaDB Replica ที่ประกาศการเชื่อมต่อที่ใช้ สิทธิ์ของแต่ละบทบาท และสรุปสถานะ เปิดหรือปิดได้จาก System Settings
+_Avoid_: แอป, ระบบย่อย
+
+**Core Module**:
+Module ที่ Module อื่นพึ่งพาจึงปิดไม่ได้ ได้แก่ Security Incident, Asset Register และรายงานผู้บริหาร
+_Avoid_: Module บังคับ
+
+**System Settings**:
+ค่าที่ทุก Module ใช้ร่วมกันและแก้ได้เฉพาะ Security Administrator ได้แก่ Module การเข้าสู่ระบบ ผู้ใช้และสิทธิ์ การแจ้งเตือน การเชื่อมต่อ และบันทึกการใช้งาน
+_Avoid_: ค่าของแต่ละหน้า
+
+**Sign-in Provider**:
+ผู้ให้บริการยืนยันตัวตนภายนอกที่ Portal รับ ได้แก่ Provider ID และ ThaID ยืนยันตัวตนสำเร็จยังต้องมีชื่อในรายชื่อผู้มีสิทธิ์จึงเข้าได้ (ADR 0012)
+_Avoid_: SSO ที่ใครก็เข้าได้
+
+**Break-Glass Account**:
+บัญชีผู้ดูแลภายในหนึ่งบัญชีที่ใช้รหัสผ่านและ MFA สำหรับการตั้งค่าครั้งแรกหรือเมื่อ Sign-in Provider ใช้ไม่ได้ ทุกครั้งที่ใช้จะแจ้งผู้ดูแลทุกคน
+_Avoid_: บัญชี admin ประจำวัน
+
+**Replica Pair**:
+คู่ฐานข้อมูล MariaDB master กับ replica ที่ Module MariaDB Replica เฝ้าดู พร้อมตัวกรองฐานที่ทำสำเนา (ADR 0013)
+_Avoid_: Backup, ฐานสำรอง
+
+**Replica Status Report**:
+รายงาน `db-replica-report/v1` จาก Replica Reporter บนเครื่องฐานข้อมูล มีเฉพาะสถานะการทำสำเนา ขนาดและจำนวนตารางของแต่ละฐาน ไม่มีข้อมูลในตาราง
+_Avoid_: Database dump
+
 ## Deprecated terms
 
 คำเหล่านี้มาจากแนวทางเดิมที่ให้โรงพยาบาลดูแล FortiSIEM ต่อ (ADR 0001 ซึ่งถูกแทนที่แล้ว) ไม่ควรใช้ในเอกสารหรือโค้ดใหม่

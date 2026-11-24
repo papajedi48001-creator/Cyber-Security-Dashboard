@@ -142,6 +142,8 @@ All backup artifacts are encrypted before GDCC storage where the backup system s
 
 Automatic upload of HOSxP daily backup files and of the project's own systems to GDCC, capacity-based pruning of the oldest unprotected backups, and the cloud backup logs and dashboard are designed in [the cloud backup design](./2026-11-10-cloud-backup-design.md) and [ADR 0009](../../adr/0009-gdcc-cloud-backup-with-capacity-pruning.md).
 
+On 2026-11-24 the Portal was reorganised as the Waritchaphum Security Dashboard: a core platform that owns all settings, with feature areas as modules, sign-in through Provider ID and ThaID, and a MariaDB Replica module. See [the modules design](./2026-11-24-security-dashboard-modules-design.md).
+
 ### Recovery objectives
 
 Wazuh all-in-one and required Portal components must be recoverable within 24 hours. This phase accepts a gap in log collection during recovery and is not high availability.
