@@ -1,10 +1,10 @@
 import { can } from "@/lib/auth/authorize";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { AssetForm } from "./AssetForm";
 
 export default async function AssetsPage() {
-  const session = await requirePageSession("asset.read");
+  const session = await requireModulePage("assets");
   const assets = await getServices().assets.listAssets(session.user);
   return (
     <>

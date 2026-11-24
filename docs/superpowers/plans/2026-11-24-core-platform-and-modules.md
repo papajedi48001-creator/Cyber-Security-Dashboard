@@ -53,14 +53,14 @@
 
 **Files:** `portal/src/lib/modules/registry.ts`, `registry.test.ts`, `portal/src/app/(app)/layout.tsx`, `prisma/schema.prisma` (`ModuleSetting { id, enabled, updatedAt, updatedBy }`).
 
-- [ ] Write failing tests:
+- [x] Write failing tests:
   - every existing page is registered;
   - core modules cannot be disabled;
   - `visibleModules(role, settings)` follows the permission matrix in the spec;
   - a disabled module is hidden and its connector is not polled.
-- [ ] Run `npm test -- registry`. Expect FAIL.
-- [ ] Implement the registry, the migration and the left-rail layout with the "ตั้งค่าระบบ" group shown to administrators only.
-- [ ] Run the tests. Expect PASS. Commit.
+- [x] Run `npm test -- registry`. Expect FAIL.
+- [x] Implement the registry, the migration and the left-rail layout with the "ตั้งค่าระบบ" group shown to administrators only.
+- [x] Run the tests. Expect PASS. Commit.
 
 ### Task 2: Encrypted settings store and connectors page
 
@@ -102,12 +102,12 @@
 
 ### Task 5: Overview tiles from module summaries
 
-- [ ] Write failing tests:
+- [x] Write failing tests:
   - every visible module contributes one tile;
   - a module whose summary is older than its stale threshold renders `stale`;
   - a module with no data renders `waiting`.
-- [ ] Implement `summary()` for each existing module, plus the overview page.
-- [ ] Run the tests. Expect PASS. Commit.
+- [x] Implement `summary()` for each existing module, plus the overview page.
+- [x] Run the tests. Expect PASS. Commit.
 
 ### Task 6: Replica report model and ingestion
 

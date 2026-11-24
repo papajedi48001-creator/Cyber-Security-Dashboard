@@ -1,14 +1,14 @@
 import { formatBangkok } from "@/lib/format";
 import { prisma } from "@/lib/db/client";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { getSourceOverview } from "@/lib/sources";
 
 const STATUS_LABEL = { healthy: "ปกติ", stale: "ขาดหาย", unknown: "ไม่ทราบสถานะ" } as const;
 const STATUS_CLASS = { healthy: "state-ok", stale: "state-bad", unknown: "state-warn" } as const;
 
 export default async function SourcesPage() {
-  const session = await requirePageSession("source.read");
+  const session = await requireModulePage("log-sources");
   const { config } = getServices();
   const overview = await getSourceOverview(prisma, session.user, config.wazuh.pollIntervalSeconds);
   return (

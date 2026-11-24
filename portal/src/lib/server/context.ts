@@ -20,6 +20,8 @@ import { createIncidentService, type IncidentService } from "../incidents/servic
 import { createEmailChannel, createLineChannel } from "../notifications/channels";
 import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
 import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
+import { PrismaModuleSettingStore } from "../db/module-store";
+import { createModuleSettingsService, type ModuleSettingsService } from "../modules/settings";
 
 export interface Services {
   config: PortalConfig;
@@ -32,6 +34,7 @@ export interface Services {
   ports: PortMonitorService;
   waf: WafService;
   duo: DuoManualCheckService;
+  modules: ModuleSettingsService;
 }
 
 let services: Services | undefined;
@@ -76,6 +79,7 @@ export function getServices(): Services {
       audit,
     }),
     duo: createDuoManualCheckService({ store: new PrismaDuoCheckStore(prisma), audit }),
+    modules: createModuleSettingsService({ store: new PrismaModuleSettingStore(prisma), audit }),
   };
   return services;
 }

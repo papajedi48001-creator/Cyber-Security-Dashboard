@@ -1,6 +1,6 @@
 import { formatBangkok } from "@/lib/format";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 
 const STATUS_CLASS = { fresh: "state-ok", stale: "state-warn", error: "state-bad", unavailable: "state-bad" } as const;
 
@@ -21,7 +21,7 @@ function Top({ title, rows }: { title: string; rows: { label: string; count: num
 }
 
 export default async function WafPage() {
-  const session = await requirePageSession("evidence.read");
+  const session = await requireModulePage("cloud-waf");
   const s = await getServices().waf.getSampledWafSummary(session.user);
   const max = Math.max(1, ...s.trend.map((t) => t.count));
 

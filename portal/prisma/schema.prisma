@@ -103,6 +103,14 @@ model ConnectorState {
   updatedAt     DateTime  @updatedAt
 }
 
+// Module enablement (ADR 0011). A missing row means the registry default.
+model ModuleSetting {
+  id        String   @id @db.VarChar(64)
+  enabled   Boolean
+  updatedAt DateTime @updatedAt
+  updatedBy String   @db.VarChar(64)
+}
+
 model AlertReference {
   id               String   @id @default(cuid())
   wazuhAlertId     String   @unique @db.VarChar(128)

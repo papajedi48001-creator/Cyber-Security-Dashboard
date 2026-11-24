@@ -1,7 +1,7 @@
 import { can } from "@/lib/auth/authorize";
 import { formatBangkok } from "@/lib/format";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { recordDuoCheckAction } from "./actions";
 
 const STATE = {
@@ -11,7 +11,7 @@ const STATE = {
 } as const;
 
 export default async function DuoPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
-  const session = await requirePageSession("evidence.read");
+  const session = await requireModulePage("duo");
   const { error, notice } = await searchParams;
   const status = await getServices().duo.getStatus(session.user);
   const state = STATE[status.state as keyof typeof STATE];

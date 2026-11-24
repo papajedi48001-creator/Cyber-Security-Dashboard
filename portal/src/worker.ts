@@ -9,6 +9,7 @@ import { getServices } from "./lib/server/context";
 import { silentSources } from "./lib/sources";
 import { createIndexerClient, httpsTransport } from "./lib/wazuh/client";
 import { pollWazuhAlerts } from "./lib/wazuh/poller";
+import { isModuleEnabled, moduleForCycle } from "./lib/modules/registry";
 import { createWorkerCycles } from "./lib/worker/cycles";
 
 const NOTIFY_INTERVAL_MS = 30_000;
@@ -19,7 +20,7 @@ const WAF_INTERVAL_MS = 15 * 60_000;
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports, waf } = getServices();
+const { config, audit, incidents, notifier, ports, waf, modules } = getServices();
 const source = createIndexerClient({
   baseUrl: config.wazuh.indexerUrl,
   username: config.wazuh.username,
@@ -44,8 +45,11 @@ const timers = new Map<string, NodeJS.Timeout>();
 
 /** Runs a cycle, then waits the full interval before the next one, so runs never overlap. */
 function every(name: string, intervalMs: number, cycle: () => Promise<void>) {
+  const moduleId = moduleForCycle(name);
   const run = async () => {
-    await cycle();
+    // A disabled module is not polled; its stored records stay (ADR 0011).
+    const enabled = moduleId ? isModuleEnabled(moduleId, await modules.settings().catch(() => ({}))) : true;
+    if (enabled) await cycle();
     if (!stopping) timers.set(name, setTimeout(run, intervalMs));
   };
   void run();
