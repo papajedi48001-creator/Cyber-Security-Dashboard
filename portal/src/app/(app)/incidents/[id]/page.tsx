@@ -59,7 +59,7 @@ export default async function IncidentPage({
 
   return (
     <>
-      <p>
+      <p className="back">
         <Link href="/incidents">← รายการ incident</Link>
       </p>
       <h1>
@@ -89,7 +89,7 @@ export default async function IncidentPage({
           <h2>ดำเนินการ</h2>
           <div style={{ display: "grid", gap: 16 }}>
             {i.status !== "PENDING_REVIEW" && (
-              <form action={incidentAction} style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+              <form action={incidentAction} className="row-form" style={{ alignItems: "end", flexWrap: "wrap" }}>
                 {hidden("assign")}
                 <label>
                   มอบหมายให้
