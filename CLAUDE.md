@@ -26,3 +26,4 @@ Guidance for agents working in this repository.
 - Store times in UTC; render Asia/Bangkok in the UI.
 - Plans are written test-first: write the failing test, see it fail, implement, see it pass, commit.
 - Work on a branch and open a pull request; CI runs secret scanning and a Markdown link check.
+- For Portal UI work, use the `frontend-design` skill (enabled for this repo in `.claude/settings.json`); this file's hard boundaries still win, e.g. stale data must look stale, not healthy.
