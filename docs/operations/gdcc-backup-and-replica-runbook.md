@@ -26,6 +26,22 @@ sudo bash vm-first-day.sh <ชื่อผู้ดูแล> "<SSH public key �
 3. ทดสอบ login ด้วยบัญชีใหม่ในหน้าต่างใหม่ก่อน แล้วตั้ง `PermitRootLogin no` และ `PasswordAuthentication no` ใน `/etc/ssh/sshd_config` แล้ว `systemctl reload ssh` (RHEL/Rocky ใช้ `sshd`)
 4. หมุนเปลี่ยน credential เริ่มต้นของ object storage หรือบริการอื่นที่ GDCC ส่งมาในหน้า portal ของ GDCC
 5. เปิด disk encryption (LUKS) ให้ volume ที่จะเก็บข้อมูล replica และติดตั้ง security update
+   - ถ้า VM มีดิสก์ข้อมูลแยก ให้เข้ารหัสทั้งดิสก์นั้น ถ้ามีแค่ดิสก์ระบบ (เช่น root เป็น XFS ซึ่งย่อไม่ได้) ใช้ไฟล์เข้ารหัสบน root แทน:
+
+     ```bash
+     sudo dnf -y install cryptsetup
+     sudo fallocate -l 100G /srv/replica.img && sudo chmod 600 /srv/replica.img
+     sudo cryptsetup luksFormat --type luks2 /srv/replica.img   # รหัสปลดล็อกเก็บใน Secrets Vault
+     sudo cryptsetup open /srv/replica.img replica
+     sudo mkfs.xfs /dev/mapper/replica
+     sudo mkdir -p /var/lib/mysql && sudo mount /dev/mapper/replica /var/lib/mysql
+     sudo restorecon -R /var/lib/mysql
+     ```
+
+   - ไม่ใส่ใน `/etc/fstab` หรือ `/etc/crypttab` เพื่อให้เครื่องบูตได้โดยไม่ต้องใส่รหัส หลังรีบูตผู้ดูแลปลดล็อกเอง: `sudo cryptsetup open /srv/replica.img replica && sudo mount /dev/mapper/replica /var/lib/mysql && sudo systemctl start mariadb` ระหว่างนั้นหน้า Portal แสดง replica เป็น unavailable
+   - ตั้ง MariaDB ไม่ให้เริ่มเองตอนบูต (`sudo systemctl disable mariadb`) เพื่อไม่ให้สร้างฐานข้อมูลเปล่าบนดิสก์ที่ยังไม่ปลดล็อก
+   - repository ของ restic ไม่ต้องใช้ LUKS เพราะเข้ารหัสจากฝั่งโรงพยาบาลแล้ว
+   - ปิด web console ที่เปิดรับรหัสผ่านจากอินเทอร์เน็ต: `sudo systemctl disable --now cockpit.socket`
 6. บันทึกในตารางท้าย runbook: บริการที่ได้รับ (object storage/VM/DB), โควตา, เส้นทางเครือข่าย, และ GDCC รองรับ credential แบบเขียนอย่างเดียวหรือ object lock หรือไม่
 
 ## 1. เส้นทางเครือข่าย
