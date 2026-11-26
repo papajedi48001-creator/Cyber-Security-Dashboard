@@ -26,6 +26,7 @@ sudo bash vm-first-day.sh <ชื่อผู้ดูแล> "<SSH public key �
 3. ทดสอบ login ด้วยบัญชีใหม่ในหน้าต่างใหม่ก่อน แล้วตั้ง `PermitRootLogin no` และ `PasswordAuthentication no` ใน `/etc/ssh/sshd_config` แล้ว `systemctl reload ssh` (RHEL/Rocky ใช้ `sshd`)
 4. หมุนเปลี่ยน credential เริ่มต้นของ object storage หรือบริการอื่นที่ GDCC ส่งมาในหน้า portal ของ GDCC
 5. เปิด disk encryption (LUKS) ให้ volume ที่จะเก็บข้อมูล replica และติดตั้ง security update
+   - VM ของโรงพยาบาลใช้ไฟล์เข้ารหัสก้อนเดียว `/srv/secure.img` (440G) ร่วมกันระหว่าง replica และไฟล์ backup ของ HOSxP ตั้งค่าด้วย [`gdcc-vm-setup.sh`](../../infrastructure/gdcc-hosxp-files/gdcc-vm-setup.sh) และหลังรีบูตรัน `sudo replica-unlock` ขั้นตอนด้านล่างเป็นแบบทั่วไปสำหรับ VM อื่น
    - ถ้า VM มีดิสก์ข้อมูลแยก ให้เข้ารหัสทั้งดิสก์นั้น ถ้ามีแค่ดิสก์ระบบ (เช่น root เป็น XFS ซึ่งย่อไม่ได้) ใช้ไฟล์เข้ารหัสบน root แทน:
 
      ```bash
