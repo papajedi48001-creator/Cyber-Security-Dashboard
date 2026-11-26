@@ -105,7 +105,9 @@ binary log บน primary เก็บ 7 วัน ถ้า replica ขาด�
 
 1. บน replica: `STOP SLAVE; RESET SLAVE ALL; SET GLOBAL read_only = OFF;` และแก้ `read_only = OFF` ใน config
 2. สร้างบัญชีแอปของ Portal บนเครื่องนี้ (รหัสใหม่จาก Secrets Vault)
-3. สร้าง Portal Application Server ใหม่ (ในโรงพยาบาลหรือ GDCC) ชี้ `DATABASE_URL` มาที่เครื่องนี้ ผ่าน VPN หรือ tunnel เท่านั้น
+3. สร้าง Portal Application Server ใหม่ (ในโรงพยาบาลหรือ GDCC) ชี้ `DATABASE_URL` มาที่เครื่องนี้ ผ่าน VPN หรือ tunnel
+   - **ทางฉุกเฉิน (break-glass)** เมื่อ tunnel และ VPN ใช้ไม่ได้: ขอ GDCC เปิด 3306 ของ VM ให้เฉพาะ public IP ของโรงพยาบาลชั่วคราว ตั้ง `bind_address` ให้ฟังบน interface ภายนอก บัญชีแอปต้อง `REQUIRE X509` (client certificate จาก CA ของเรา) และผูกกับ IP ของโรงพยาบาล บันทึกเวลาเปิด และปิดพอร์ตทันทีเมื่อกลับมาใช้ VPN/tunnel หรือ primary ใหม่พร้อม
+   - ช่วงปกติพอร์ต 3306 ที่ GDCC ต้องปิดเสมอ การ replicate ไม่ใช้พอร์ตนี้
 4. ตรวจ login, incident ล่าสุด และ audit log
 5. primary เดิมต้องสร้างใหม่เป็น replica ของเครื่องนี้ ห้ามเปิดกลับมาเป็นตัวเขียน
 6. บันทึกเวลาเริ่ม-สิ้นสุด ข้อมูลที่ขาดหาย และเปิด incident สำหรับเหตุการณ์นี้
