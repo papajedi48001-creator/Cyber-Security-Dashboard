@@ -11,6 +11,11 @@ relay_log_recovery = ON
 skip_name_resolve  = ON
 # Reachable only through the SSH tunnel (or the VPN interface, never the internet).
 bind_address       = 127.0.0.1
+# Must match the HOSxP primary (checked 2026-11-26). lower_case_table_names is fixed when the data directory is created.
+lower_case_table_names = 1
+character_set_server   = tis620
+collation_server       = tis620_thai_ci
+sql_mode               = NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
 # Only the hos database, without replicate_log and its dated copies (ADR 0010).
 hosxp.replicate_do_db             = hos
 hosxp.replicate_wild_ignore_table = hos.replicate_log%
