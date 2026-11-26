@@ -1,0 +1,9 @@
+# /etc/ssh/sshd_config.d/20-hosxp-upload.conf — GDCC VM (ADR 0010)
+# The HOSxP server's upload key may only use SFTP inside the inbox chroot.
+# The chroot path must be owned by root and not writable by others; only inbox/ belongs to hosxp-upload.
+Match User hosxp-upload
+    ForceCommand internal-sftp -u 077
+    ChrootDirectory /srv/secure/sftp/hosxp
+    AllowTcpForwarding no
+    PermitTTY no
+    X11Forwarding no

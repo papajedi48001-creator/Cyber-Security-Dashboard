@@ -1,0 +1,19 @@
+# /etc/systemd/system/hosxp-offsite-upload.service — HOSxP server (ADR 0010)
+[Unit]
+Description=Copy HOSxP daily backup files to GDCC
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=hosxp-offsite
+ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py upload \
+  --source /mnt/mariadb-migration-ro/HOSxP_Backup_Daily \
+  --state /var/lib/hosxp-offsite/state.json \
+  --outbox /var/spool/hosxp-offsite/outbox \
+  --destination hosxp-upload@gdcc-vm \
+  --key /etc/hosxp-offsite/upload_ed25519
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+NoNewPrivileges=true

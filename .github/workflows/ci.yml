@@ -77,6 +77,7 @@ jobs:
           python-version: "3.12"
       - run: python3 -m unittest discover -s infrastructure/gdcc-backup/tests -v
       - run: python3 -m unittest discover -s infrastructure/gdcc-replica/tests -v
+      - run: python3 -m unittest discover -s infrastructure/gdcc-hosxp-files/tests -v
 
   gdcc-replica-lab:
     name: GDCC replica rehearsal (MariaDB over SSH tunnel)

@@ -1,0 +1,13 @@
+# /etc/systemd/system/hosxp-offsite-store.service — GDCC VM (ADR 0010)
+[Unit]
+Description=Verify HOSxP backup uploads and prune the oldest when the volume is full
+RequiresMountsFor=/srv/secure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py store \
+  --inbox /srv/secure/sftp/hosxp/inbox \
+  --store /srv/secure/hosxp-backups \
+  --keep-min 2 --max-use-percent 85
+Nice=10
+IOSchedulingClass=idle
