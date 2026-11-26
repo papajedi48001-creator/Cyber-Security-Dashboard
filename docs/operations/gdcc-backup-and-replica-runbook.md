@@ -13,6 +13,14 @@
 
 ## 0. วันแรกที่ได้รับ GDCC (ทำก่อนทุกอย่าง)
 
+ข้อ 1–3 และการเตรียมบัญชี `tunnel` ทำได้ด้วยสคริปต์เดียว [`vm-first-day.sh`](../../infrastructure/gdcc-replica/vm-first-day.sh) (รันบน VM เป็น root ใน session ที่เปิดค้างไว้):
+
+```bash
+sudo bash vm-first-day.sh <ชื่อผู้ดูแล> "<SSH public key ของผู้ดูแล>"            # เพิ่ม --with-mariadb เพื่อติดตั้ง replica
+```
+
+สคริปต์พิมพ์รหัส root ใหม่ครั้งเดียว ให้เก็บใน Secrets Vault ทันที แล้วทดสอบ login ด้วยบัญชีใหม่ในหน้าต่างใหม่ก่อนปิด session เดิม
+
 1. เปลี่ยนรหัส root ที่ GDCC ส่งมา: `passwd root` ใช้รหัสสุ่ม 20 ตัวขึ้นไป (`openssl rand -base64 24`) เก็บใน Secrets Vault ทันที
 2. สร้างบัญชีผู้ดูแลแบบระบุตัวคน (`adduser <ชื่อ>`, `usermod -aG sudo <ชื่อ>`) พร้อม SSH public key
 3. ทดสอบ login ด้วยบัญชีใหม่ในหน้าต่างใหม่ก่อน แล้วตั้ง `PermitRootLogin no` และ `PasswordAuthentication no` ใน `/etc/ssh/sshd_config` แล้ว `systemctl reload ssh` (RHEL/Rocky ใช้ `sshd`)

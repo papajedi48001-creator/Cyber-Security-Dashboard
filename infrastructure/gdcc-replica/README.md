@@ -10,6 +10,7 @@ MariaDB replica ของฐานข้อมูล Portal บน VM ใน GDC
 | `setup-replica.sql.example` | บัญชี `repl` (REQUIRE SSL), `CHANGE MASTER` แบบตรวจ certificate, บัญชี `portal-monitor` |
 | `systemd/gdcc-replica-tunnel.service.example` | SSH reverse tunnel จาก Portal server ออกไป GDCC (ใช้เมื่อไม่มี site-to-site VPN) |
 | `authorized_keys.example` | จำกัด key ของ tunnel ให้เปิดได้แค่สอง forward ไม่มี shell |
+| `vm-first-day.sh` | hardening วันแรกของ VM ใน GDCC: update, บัญชีผู้ดูแล + key, รหัส root ใหม่, บัญชี `tunnel`, sshd แบบ key เท่านั้น, ติดตั้ง MariaDB (เลือกได้) |
 | `lab/run-lab.sh` | ซ้อมครบวงจรบนเครื่องเดียว: replicate ผ่าน tunnel + TLS, read-only, monitor, ตัด tunnel แล้วตามทัน |
 
 ## เส้นทางเครือข่าย
