@@ -30,7 +30,7 @@ sudo bash vm-first-day.sh <ชื่อผู้ดูแล> "<SSH public key �
 
      ```bash
      sudo dnf -y install cryptsetup
-     sudo fallocate -l 100G /srv/replica.img && sudo chmod 600 /srv/replica.img
+     sudo fallocate -l 380G /srv/replica.img   # Portal อย่างเดียวใช้ 100G พอ; รวม HOSxP (ADR 0010) ใช้ 380G && sudo chmod 600 /srv/replica.img
      sudo cryptsetup luksFormat --type luks2 /srv/replica.img   # รหัสปลดล็อกเก็บใน Secrets Vault
      sudo cryptsetup open /srv/replica.img replica
      sudo mkfs.xfs /dev/mapper/replica
