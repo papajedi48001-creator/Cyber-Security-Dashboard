@@ -11,12 +11,13 @@ What the hospital measured on the HOSxP primary (2026-11-26):
 |---|---|
 | Version | MariaDB 10.11 |
 | Binary log | already on, `binlog_format=ROW`, `server_id=1`, `gtid_domain_id=0`, kept 14 days, about 1.5 GB a day |
-| Data to copy | about 280 GB, of which about 135 GB is in MyISAM tables |
+| Data on the server | about 280 GB, of which about 245 GB is the `hos` database and about 135 GB is in MyISAM tables |
 | InnoDB buffer pool on the primary | 120 GB |
 
 ## Decision
 
 - Use the same mechanism as ADR 0009: asynchronous GTID replication over the SSH tunnel (or the site-to-site VPN once GDCC provides it), started from the hospital side, with TLS inside the tunnel and a replication-only account.
+- Only the `hos` database is copied, without the `hos.replicate_log` table, which is large and unused (hospital decision, 2026-11-26). The replica connection uses `hosxp.replicate_do_db=hos` and `hosxp.replicate_ignore_table=hos.replicate_log`; the first copy is a partial `mariabackup` with the same scope (`--databases`, `--tables-exclude`). Other HOSxP databases stay out of GDCC.
 - One MariaDB on the GDCC VM follows both primaries by multi-source replication, one named connection each (`hosxp`, `portal`). HOSxP keeps GTID domain 0; the Portal primary moves to domain 1 so the two GTID streams never collide.
 - The replica is read-only, binds to 127.0.0.1, and stores its data on a separate GDCC data disk encrypted with LUKS. It does not start at boot until an administrator unlocks the disk.
 - The first copy is taken with `mariabackup` to local disk on the HOSxP server, outside working hours, then transferred. Streaming straight over the internet would keep MyISAM tables write-locked for the whole transfer.
