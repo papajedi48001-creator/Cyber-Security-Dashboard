@@ -76,6 +76,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m unittest discover -s infrastructure/gdcc-backup/tests -v
+      - run: python3 -m unittest discover -s infrastructure/gdcc-replica/tests -v
+
+  gdcc-replica-lab:
+    name: GDCC replica rehearsal (MariaDB over SSH tunnel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MariaDB, OpenSSH and autossh
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-server openssh-server autossh
+      - name: Run rehearsal
+        run: sudo infrastructure/gdcc-replica/lab/run-lab.sh "$RUNNER_TEMP/gdcc-lab"
 
   operations-records:
     name: Operations record validator tests

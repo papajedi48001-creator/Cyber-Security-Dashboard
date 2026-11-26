@@ -1,0 +1,17 @@
+# Portal MariaDB (primary, hospital) — /etc/mysql/mariadb.conf.d/60-gdcc-replication.cnf
+# ADR 0009. Enabling the binary log needs a MariaDB restart: production change, hospital approval.
+[mariadb]
+server_id                  = 1
+log_bin                    = portal-bin
+binlog_format              = ROW
+gtid_strict_mode           = ON
+sync_binlog                = 1
+# Keep 7 days so a replica that was offline (tunnel or VPN down) can catch up.
+binlog_expire_logs_seconds = 604800
+
+# TLS for replication. The certificate must name the host the replica uses in
+# MASTER_HOST: with the SSH tunnel that is portal-db-primary (mapped to
+# 127.0.0.1 on the GDCC VM); with site-to-site VPN, the primary's VPN name.
+ssl_ca   = /etc/mysql/tls/ca.crt
+ssl_cert = /etc/mysql/tls/portal-db-primary.crt
+ssl_key  = /etc/mysql/tls/portal-db-primary.key

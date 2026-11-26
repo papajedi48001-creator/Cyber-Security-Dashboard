@@ -23,6 +23,7 @@
 | [Portal Integration UAT](docs/operations/portal-integration-uat.md) | ผลทดสอบการเชื่อมต่อ Portal และรายการ UAT ร่วมกับโรงพยาบาล |
 | [Notification runbook](docs/operations/notification-runbook.md) | ตั้งค่าและรับมือการแจ้งเตือน Email / LINE OA ที่ส่งไม่สำเร็จ |
 | [Backup Evidence runbook](docs/operations/backup-evidence-runbook.md) | บันทึกผล backup และผลทดสอบกู้คืน |
+| [GDCC backup และ replica runbook](docs/operations/gdcc-backup-and-replica-runbook.md) | สำรองข้อมูลเข้ารหัสไป GDCC, replica ฐานข้อมูล Portal, ซ้อมกู้คืน และ promote |
 | [Duo Manual Check runbook](docs/operations/duo-manual-check-runbook.md) | ขั้นตอนตรวจ Duo ด้วยมือรายวัน |
 
 ## โครงสร้างที่วางแผนไว้
