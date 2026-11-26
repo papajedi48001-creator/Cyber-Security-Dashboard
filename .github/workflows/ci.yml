@@ -85,8 +85,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install MariaDB, OpenSSH and autossh
         run: sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-server openssh-server autossh
+      - name: Let the lab mariadbd use its temporary data directories
+        # Ubuntu's AppArmor profile limits mariadbd to /var/lib/mysql; the lab uses throwaway directories.
+        run: |
+          for profile in /etc/apparmor.d/usr.sbin.mariadbd /etc/apparmor.d/usr.sbin.mysqld; do
+            if [ -f "$profile" ]; then sudo apparmor_parser -R "$profile" || true; fi
+          done
       - name: Run rehearsal
-        run: sudo infrastructure/gdcc-replica/lab/run-lab.sh "$RUNNER_TEMP/gdcc-lab"
+        run: sudo infrastructure/gdcc-replica/lab/run-lab.sh
 
   operations-records:
     name: Operations record validator tests
