@@ -1,6 +1,7 @@
 import { can } from "@/lib/auth/authorize";
 import { BACKUP_FEATURES } from "@/lib/backups/service";
 import type { BackupHealth } from "@/lib/backups/status";
+import { MAX_HEALTHY_LAG_SECONDS, replicaView, type ReplicaViewState } from "@/lib/replica/status";
 import { formatBangkok } from "@/lib/format";
 import { getServices } from "@/lib/server/context";
 import { requirePageSession } from "@/lib/server/session";
@@ -14,12 +15,27 @@ const HEALTH: Record<BackupHealth, { text: string; className: string }> = {
   unknown: { text: "ไม่มีข้อมูล", className: "state-warn" },
 };
 
+const REPLICA: Record<ReplicaViewState, { text: string; className: string }> = {
+  healthy: { text: "ทำงานปกติ", className: "state-ok" },
+  lagging: { text: "ล่าช้า", className: "state-warn" },
+  broken: { text: "หยุดทำงาน", className: "state-bad" },
+  unavailable: { text: "เชื่อมต่อไม่ได้", className: "state-bad" },
+  stale: { text: "ไม่ทราบสถานะ", className: "state-warn" },
+  not_configured: { text: "ยังไม่ได้ตั้งค่า", className: "state-warn" },
+};
+
 const gb = (bytes: number | null) => (bytes === null ? "-" : `${(bytes / 1024 ** 3).toFixed(1)} GB`);
 
 export default async function BackupsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
   const session = await requirePageSession("evidence.read");
   const { error, notice } = await searchParams;
-  const statuses = await getServices().backups.listBackupStatus(session.user);
+  const services = getServices();
+  const statuses = await services.backups.listBackupStatus(session.user);
+  const replica = replicaView(
+    services.replica.configured ? await services.replica.store.latest() : null,
+    services.replica.configured,
+    new Date(),
+  );
   const canRecord = can(session.user, "backup.record");
   const csrf = <input type="hidden" name="csrf" value={session.csrfToken} />;
   const jobOptions = statuses.map((s) => <option key={s.job.id}>{s.job.name}</option>);
@@ -67,6 +83,21 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="card" aria-labelledby="replica-heading">
+        <h2 id="replica-heading">Replica ฐานข้อมูล Portal ที่ GDCC</h2>
+        <p>
+          สถานะ: <strong className={REPLICA[replica.state].className}>{REPLICA[replica.state].text}</strong>
+          {replica.check && (
+            <span className="muted">
+              {" "}· ตรวจล่าสุด {formatBangkok(replica.check.checkedAt)}
+              {replica.check.lagSeconds !== null && ` · ล่าช้า ${replica.check.lagSeconds} วินาที (เกณฑ์ ${MAX_HEALTHY_LAG_SECONDS})`}
+            </span>
+          )}
+        </p>
+        {replica.reason && <p className="muted">{replica.reason}</p>}
+        <p className="muted">replica ช่วยลดข้อมูลที่สูญหาย แต่คัดลอกการลบหรือความเสียหายไปด้วยทันที จึงไม่ใช้แทน backup และไม่สลับระบบอัตโนมัติ</p>
       </div>
 
       {canRecord && statuses.length > 0 && (
