@@ -80,7 +80,8 @@ jobs:
 
   gdcc-replica-lab:
     name: GDCC replica rehearsal (MariaDB over SSH tunnel)
-    runs-on: ubuntu-latest
+    # Same MariaDB 10.11 as the Portal job and the hospital servers.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install MariaDB, OpenSSH and autossh
@@ -104,7 +105,8 @@ jobs:
 
   portal:
     name: Portal typecheck, tests, build and browser flows
-    runs-on: ubuntu-latest
+    # Playwright 1.55 cannot install Chromium on ubuntu-latest (26.04); pin until Playwright is upgraded.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: portal
