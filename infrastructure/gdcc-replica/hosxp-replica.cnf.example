@@ -1,0 +1,24 @@
+# GDCC replica of the HOSxP and Portal databases — /etc/my.cnf.d/60-gdcc-replica.cnf
+# ADR 0009 and ADR 0010. Data directory /var/lib/mysql is a LUKS-encrypted volume;
+# MariaDB does not start at boot and is started by replica-unlock after unlocking.
+# Multi-source replication: connection "hosxp" (GTID domain 0) and "portal" (domain 1).
+[mariadb]
+server_id          = 1001
+read_only          = ON
+gtid_strict_mode   = ON
+relay_log          = gdcc-relay
+relay_log_recovery = ON
+skip_name_resolve  = ON
+# Reachable only through the SSH tunnel (or the VPN interface, never the internet).
+bind_address       = 127.0.0.1
+# Only the hos database, without replicate_log and its dated copies (ADR 0010).
+hosxp.replicate_do_db             = hos
+hosxp.replicate_wild_ignore_table = hos.replicate_log%
+portal.replicate_do_db            = portal
+# Sized for a 16 GB VM.
+innodb_buffer_pool_size        = 10G
+innodb_flush_log_at_trx_commit = 2
+key_buffer_size                = 1G
+max_allowed_packet             = 1G
+slave_parallel_threads         = 4
+slave_parallel_mode            = optimistic

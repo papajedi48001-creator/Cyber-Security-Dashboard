@@ -13,7 +13,7 @@ DIR = pathlib.Path(__file__).resolve().parents[1]
 
 
 def cnf(name):
-    parser = configparser.ConfigParser(allow_no_value=True, strict=True)
+    parser = configparser.ConfigParser(allow_no_value=True, strict=True, interpolation=None)
     parser.read_string((DIR / name).read_text())
     return {k: (v or "").strip() for k, v in parser["mariadb"].items()}
 
@@ -45,6 +45,18 @@ class ReplicaTests(unittest.TestCase):
         self.assertEqual(c["replicate_do_db"], "portal")
         self.assertEqual(c["bind_address"], "127.0.0.1")
 
+
+class HosxpReplicaTests(unittest.TestCase):
+    def test_hosxp_replica_is_read_only_local_and_scoped(self):
+        c = cnf("hosxp-replica.cnf.example")
+        self.assertEqual(c["read_only"], "ON")
+        self.assertEqual(c["relay_log_recovery"], "ON")
+        self.assertEqual(c["bind_address"], "127.0.0.1")
+        self.assertEqual(c["hosxp.replicate_do_db"], "hos")
+        self.assertEqual(c["hosxp.replicate_wild_ignore_table"], "hos.replicate_log%")
+        self.assertEqual(c["portal.replicate_do_db"], "portal")
+        self.assertNotEqual(c["server_id"], cnf("primary.cnf.example")["server_id"])
+        self.assertNotEqual(c["server_id"], "1")
 
 class SetupTests(unittest.TestCase):
     sql = (DIR / "setup-replica.sql.example").read_text()
