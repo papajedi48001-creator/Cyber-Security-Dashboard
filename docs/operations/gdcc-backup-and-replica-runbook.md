@@ -97,6 +97,8 @@ timeout 5 bash -c '</dev/tcp/<GDCC_VM_IP>/22' && echo 22 open || echo 22 closed
 6. seed: `mariadb-dump --single-transaction --gtid --master-data=1 --databases portal` แล้วโหลดบน replica
 7. `CHANGE MASTER TO ...` แล้ว `START SLAVE` และสร้างบัญชี `portal-monitor`
 8. ตั้ง `PORTAL_REPLICA_MONITOR_URL=mysql://portal-monitor:<รหัส>@127.0.0.1:3316/` บน Portal แล้ว restart worker
+   - ถ้า VM ใช้ multi-source (connection `portal` และ `hosxp` ตาม `hosxp-replica.cnf.example`) ตั้งเพิ่ม `PORTAL_REPLICA_CONNECTION=portal` และ `HOSXP_REPLICA_CONNECTION=hosxp` หน้า Backup จะแสดง replica แยกเป็น 2 การ์ด และเปิด incident P3 แยกกัน (`portal-db-replica`, `hosxp-db-replica`)
+   - ถ้าตั้งชื่อ connection ผิด หรือ connection ยังไม่ถูกสร้าง สถานะจะเป็น "เชื่อมต่อไม่ได้" ไม่ใช่ "ทำงานปกติ"
 9. ตรวจหน้า Backup ของ Portal ว่า replica "ทำงานปกติ" และเพิ่ม incident ทดสอบแล้วดูว่าขึ้นบน replica
 
 ## 4. เฝ้าระวัง

@@ -69,11 +69,14 @@ describe("worker cycles", () => {
     expect(logs[0]).toMatchObject({ event: "backup_inbox", detail: { files: 1, imported: 3 } });
   });
 
-  it("checks the replica and opens an incident for a finding", async () => {
-    const finding = { category: "replica_health", sourceName: "portal-db-replica", severity: "P3" as const, title: "replica", detectedAt: new Date() };
+  it("checks each replica and opens an incident for a finding", async () => {
+    const finding = { category: "replica_health", sourceName: "hosxp-db-replica", severity: "P3" as const, title: "replica", detectedAt: new Date() };
     const raised: string[] = [];
     const { cycles, logs } = deps({
-      checkReplica: async () => ({ check: { state: "broken", lagSeconds: null, consecutiveFailures: 2 }, finding }),
+      checkReplicas: [
+        { source: "portal-db-replica", check: async () => ({ check: { state: "healthy", lagSeconds: 0, consecutiveFailures: 0 }, finding: null }) },
+        { source: "hosxp-db-replica", check: async () => ({ check: { state: "broken", lagSeconds: null, consecutiveFailures: 2 }, finding }) },
+      ],
       incidents: {
         raisePending: async () => [],
         raiseSourceHealth: async () => [],
@@ -85,6 +88,14 @@ describe("worker cycles", () => {
     });
     await cycles.replica();
     expect(raised).toEqual(["system:replica-monitor"]);
-    expect(logs[0]).toMatchObject({ event: "replica", detail: { state: "broken", incidentsRaised: ["INC-portal-db-replica"] } });
+    expect(logs[0]).toMatchObject({
+      event: "replica",
+      detail: {
+        replicas: [
+          { source: "portal-db-replica", state: "healthy", incidentsRaised: [] },
+          { source: "hosxp-db-replica", state: "broken", incidentsRaised: ["INC-hosxp-db-replica"] },
+        ],
+      },
+    });
   });
 });

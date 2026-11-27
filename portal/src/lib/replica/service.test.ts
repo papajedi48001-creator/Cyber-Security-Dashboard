@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createReplicaMonitor, InMemoryReplicaStore } from "./service";
+import { createReplicaMonitor, HOSXP_REPLICA, InMemoryReplicaStore, PORTAL_REPLICA, replicaTargets } from "./service";
 
 const NOW = new Date("2026-11-26T10:00:00Z");
 const ok = { Slave_IO_Running: "Yes", Slave_SQL_Running: "Yes", Seconds_Behind_Master: 0 };
 const broken = { Slave_IO_Running: "No", Slave_SQL_Running: "Yes", Seconds_Behind_Master: null, Last_IO_Error: "lost" };
 
-function monitor(rows: (Record<string, unknown> | null | Error)[]) {
+function monitor(rows: (Record<string, unknown> | null | Error)[], target = PORTAL_REPLICA) {
   const store = new InMemoryReplicaStore();
   let i = 0;
   const m = createReplicaMonitor({
+    target,
     fetchStatus: async () => {
       const row = rows[i++]!;
       if (row instanceof Error) throw row;
@@ -44,5 +45,22 @@ describe("replica monitor", () => {
       detectedAt: NOW,
     });
     expect((await m.check()).finding).not.toBeNull();
+  });
+
+  it("names the HOSxP replica in its finding", async () => {
+    const { m } = monitor([broken, broken], HOSXP_REPLICA);
+    await m.check();
+    const { finding } = await m.check();
+    expect(finding).toMatchObject({ sourceName: "hosxp-db-replica", title: expect.stringContaining("HOSxP") });
+  });
+});
+
+describe("replicaTargets", () => {
+  it("always lists the Portal replica and adds HOSxP only when its connection is set", () => {
+    expect(replicaTargets({ portalConnection: "" })).toEqual([{ ...PORTAL_REPLICA, connection: "" }]);
+    expect(replicaTargets({ portalConnection: "portal", hosxpConnection: "hosxp" })).toEqual([
+      { ...PORTAL_REPLICA, connection: "portal" },
+      { ...HOSXP_REPLICA, connection: "hosxp" },
+    ]);
   });
 });

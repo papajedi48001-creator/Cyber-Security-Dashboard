@@ -1,7 +1,7 @@
 // Portal background worker: run beside the web process (`npm run worker`).
 // Polls Wazuh, opens incidents, watches source health and port exposure, sends
 // notifications, and (when configured) imports GDCC backup evidence and checks
-// the GDCC Portal database replica.
+// each connection of the GDCC database replica (Portal, HOSxP).
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "./lib/db/client";
@@ -25,11 +25,15 @@ const REPLICA_INTERVAL_MS = 5 * 60_000;
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports, waf, backups, replica } = getServices();
+const { config, audit, incidents, notifier, ports, waf, backups, replicas } = getServices();
 const inbox = config.backupEvidenceInbox;
-const replicaMonitor = config.replicaMonitorUrl
-  ? createReplicaMonitor({ fetchStatus: replicaStatusReader(config.replicaMonitorUrl), store: replica.store })
-  : null;
+const readReplica = config.replicaMonitorUrl ? replicaStatusReader(config.replicaMonitorUrl) : null;
+const replicaMonitors = readReplica
+  ? replicas.map((target) => ({
+      source: target.source,
+      check: createReplicaMonitor({ target, fetchStatus: readReplica(target.connection), store: target.store }).check,
+    }))
+  : [];
 const source = createIndexerClient({
   baseUrl: config.wazuh.indexerUrl,
   username: config.wazuh.username,
@@ -48,7 +52,7 @@ const cycles = createWorkerCycles({
   importBackupInbox: inbox
     ? (correlationId) => processEvidenceInbox(inbox, (csv, source) => backups.importSystemReport(csv, source, correlationId))
     : undefined,
-  checkReplica: replicaMonitor ? replicaMonitor.check : undefined,
+  checkReplicas: replicaMonitors,
   log,
   newCorrelationId: randomUUID,
 });
@@ -73,7 +77,7 @@ every("ports", PORT_INTERVAL_MS, cycles.ports);
 if (waf.configured) every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
 if (inbox) every("backup_inbox", BACKUP_INBOX_INTERVAL_MS, cycles.backupInbox);
-if (replicaMonitor) every("replica", REPLICA_INTERVAL_MS, cycles.replica);
+if (replicaMonitors.length) every("replica", REPLICA_INTERVAL_MS, cycles.replica);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {

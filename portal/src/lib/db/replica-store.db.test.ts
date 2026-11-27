@@ -17,10 +17,10 @@ describe.skipIf(!testDatabaseUrl)("PrismaReplicaStore (MariaDB)", () => {
   });
 
   it("reports a server that is not a replica as unavailable", async () => {
-    // The CI MariaDB is a standalone server; SHOW REPLICA STATUS returns no row
-    // (or is refused for an account without the monitor privilege).
+    // The CI MariaDB is a standalone server; SHOW ALL REPLICAS STATUS returns no
+    // "hosxp" row (or is refused for an account without the monitor privilege).
     const monitor = createReplicaMonitor({
-      fetchStatus: replicaStatusReader(testDatabaseUrl!),
+      fetchStatus: replicaStatusReader(testDatabaseUrl!)("hosxp"),
       store: new PrismaReplicaStore(prisma, `test-${Date.now().toString(36)}-r`),
     });
     const { check } = await monitor.check();
