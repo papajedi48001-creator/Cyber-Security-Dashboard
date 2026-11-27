@@ -124,6 +124,8 @@ export default async function PortMonitorPage({ searchParams }: { searchParams: 
         </table>
       </div>
 
+      {(canImport || canApprove) && <h2 className="section-title">บันทึกข้อมูล</h2>}
+      <div className="forms">
       {canImport && (
         <>
           <div className="card">
@@ -172,6 +174,7 @@ export default async function PortMonitorPage({ searchParams }: { searchParams: 
           </form>
         </div>
       )}
+      </div>
     </>
   );
 }
