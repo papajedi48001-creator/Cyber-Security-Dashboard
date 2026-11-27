@@ -1,5 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { E2E_ENV, storageFile } from "./env";
 
@@ -34,7 +34,32 @@ function writeStatus(generatedAt: Date) {
   );
 }
 
+function writeNasStatus(generatedAt: Date | null) {
+  const path = join(dirname(E2E_ENV.GDCC_FILES_STATUS_PATH!), "nas-status.json");
+  if (!generatedAt) return rmSync(path, { force: true });
+  const sets = [0, 1, 2].map((daysAgo) => ({ date: new Date(Date.now() + 7 * 3_600_000 - daysAgo * 86_400_000).toISOString().slice(0, 10), zip_name: `MySQL_backup_192.0.2.10_11093_${stampFor(daysAgo)}.ZIP`, zip_bytes: 36 * GIB }));
+  writeFileSync(
+    path,
+    JSON.stringify({ schema: 1, generated_at: utc(generatedAt), keep_count: 15, complete_sets: 15, newest_set_date: sets[0]!.date, oldest_set_date: sets[2]!.date, sets, deleted_files: [], free_bytes: 2600 * GIB, total_bytes: 20000 * GIB, last_run_ok: true, error: null }),
+  );
+}
+
 test.describe.configure({ mode: "serial" });
+
+test("NAS retention shows its last run, and no report shows as unavailable rather than healthy", async ({ browser }) => {
+  writeStatus(new Date());
+  writeNasStatus(null);
+  const page = await (await browser.newContext({ storageState: storageFile("opA") })).newPage();
+  await page.goto("/backups/files");
+  await expect(page.getByText("ไม่มีข้อมูลจาก NAS")).toBeVisible();
+  writeNasStatus(new Date());
+  await page.reload();
+  await expect(page.getByText("รอบล่าสุดทำงานปกติ")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ชุดที่เก็บบน NAS" })).toBeVisible();
+  writeNasStatus(new Date(Date.now() - 30 * 3_600_000));
+  await page.reload();
+  await expect(page.getByText("ไม่ได้รับรายงาน", { exact: true })).toBeVisible();
+});
 
 test("destroying a GDCC backup file needs a reason, a second person's approval and a hold", async ({ browser }) => {
   writeStatus(new Date());

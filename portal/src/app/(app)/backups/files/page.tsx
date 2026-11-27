@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { can } from "@/lib/auth/authorize";
-import { readFilesStatus } from "@/lib/backup-files/exchange";
+import { readFilesStatus, readNasStatus } from "@/lib/backup-files/exchange";
+import { evaluateNasStatus, NAS_STALE_HOURS, type NasView } from "@/lib/backup-files/nas";
 import { DELETION_HOLD_HOURS, type BackupFileRequest, type RequestStatus } from "@/lib/backup-files/service";
 import { EXPAND_AT_PERCENT, evaluateFilesStatus, STATUS_STALE_MINUTES, type FilesState, type VolumeLevel } from "@/lib/backup-files/status";
 import { formatBangkok } from "@/lib/format";
@@ -50,6 +51,7 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
   const now = new Date();
   const configured = Boolean(config.gdccFiles);
   const view = evaluateFilesStatus(config.gdccFiles ? await readFilesStatus(config.gdccFiles.statusPath) : null, now);
+  const nas = evaluateNasStatus(config.gdccFiles ? await readNasStatus(config.gdccFiles.statusPath) : null, now);
   const requests = await backupFiles.list(session.user);
   const open = new Map(requests.filter((r) => ["PROPOSED", "APPROVED", "SENT"].includes(r.status)).map((r) => [r.fileName, r]));
   const state = STATE[configured ? view.state : "not_configured"];
@@ -61,16 +63,19 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
   return (
     <>
       <p className="back"><Link href="/backups">← Backup Evidence</Link></p>
-      <h1>ไฟล์ backup HOSxP บน GDCC</h1>
+      <h1>ไฟล์ backup HOSxP</h1>
       <p className="lead">
-        ไฟล์ ZIP รายวันที่ส่งจากเครื่อง HOSxP ไปเก็บในดิสก์เข้ารหัสบน VM GDCC Portal เห็นเฉพาะชื่อไฟล์ ขนาด และผลตรวจ checksum
-        ไม่มีปุ่มลบทันทีหรือกู้คืน การทำลายไฟล์ต้องมีผู้เสนอ ผู้อนุมัติอีกคน และช่วงพักรอ {DELETION_HOLD_HOURS} ชั่วโมงที่ยกเลิกได้
+        ไฟล์ ZIP รายวันของ HOSxP สองที่: NAS ในโรงพยาบาล (ลบไฟล์เก่าเองตามจำนวนชุดที่กำหนด) และสำเนาในดิสก์เข้ารหัสบน VM GDCC
+        Portal เห็นเฉพาะชื่อไฟล์ ขนาด และผลตรวจ ไม่มีปุ่มลบทันทีหรือกู้คืน การทำลายไฟล์บน GDCC ก่อนเวลาต้องมีผู้เสนอ ผู้อนุมัติอีกคน และช่วงพักรอ {DELETION_HOLD_HOURS} ชั่วโมงที่ยกเลิกได้
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="state-ok" role="status">{notice}</p>}
 
+      <NasSection nas={nas} />
+
+      <h2 className="section-title">สำเนาบน GDCC</h2>
       <div className="card" aria-labelledby="volume-heading">
-        <h2 id="volume-heading">สถานะที่เก็บ</h2>
+        <h2 id="volume-heading">สถานะที่เก็บบน GDCC</h2>
         <p>
           ข้อมูลจาก GDCC: <strong className={state.className}>{state.text}</strong>
           {view.generatedAt && <span className="muted"> · รายงานล่าสุด {formatBangkok(view.generatedAt)} (เกณฑ์ {STATUS_STALE_MINUTES} นาที)</span>}
@@ -98,7 +103,7 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
 
       {view.days.length > 0 && (
         <div className="card" aria-labelledby="days-heading">
-          <h2 id="days-heading">ไฟล์รายวัน</h2>
+          <h2 id="days-heading">ไฟล์รายวันบน GDCC</h2>
           <p className={missing ? "state-bad" : "muted"}>
             {missing ? `ขาด ${missing} วัน ในช่วงที่ยังเก็บไฟล์อยู่` : "ครบทุกวันในช่วงที่ยังเก็บไฟล์อยู่"}
           </p>
@@ -114,7 +119,7 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
       )}
 
       <div className="card table-wrap">
-        <h2>ไฟล์ที่เก็บอยู่</h2>
+        <h2>ไฟล์ที่เก็บบน GDCC</h2>
         <table>
           <thead>
             <tr><th>วันที่ backup</th><th>ชื่อไฟล์</th><th>ขนาด</th><th>checksum</th><th>ถึง GDCC</th><th>การเก็บ</th></tr>
@@ -193,6 +198,80 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
               <li key={`c-${c.file}-${c.at.toISOString()}`} className="state-bad">{formatBangkok(c.at)} checksum ไม่ตรง ไฟล์ถูกทิ้ง รอส่งใหม่: <code>{c.file}</code></li>
             ))}
           </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+const NAS_STATE: Record<NasView["state"], { text: string; className: string }> = {
+  fresh: { text: "รอบล่าสุดทำงานปกติ", className: "state-ok" },
+  failed: { text: "รอบล่าสุดล้มเหลว", className: "state-bad" },
+  stale: { text: "ไม่ได้รับรายงาน", className: "state-bad" },
+  unavailable: { text: "ไม่มีข้อมูลจาก NAS", className: "state-bad" },
+};
+
+function NasSection({ nas }: { nas: NasView }) {
+  const state = NAS_STATE[nas.state];
+  const missing = nas.days.filter((d) => d.state === "missing").length;
+  return (
+    <>
+      <h2 className="section-title">NAS ในโรงพยาบาล</h2>
+      <div className="card" aria-labelledby="nas-heading">
+        <h2 id="nas-heading">การเก็บไฟล์บน NAS</h2>
+        <p>
+          สถานะ: <strong className={state.className}>{state.text}</strong>
+          {nas.generatedAt && <span className="muted"> · รายงานล่าสุด {formatBangkok(nas.generatedAt)} (เกณฑ์ {NAS_STALE_HOURS} ชม.)</span>}
+        </p>
+        {nas.error && <p className="card state-bad">{nas.error}</p>}
+        {nas.state === "stale" && <p className="card state-bad">ไม่ได้รับรายงานจาก NAS เกิน {NAS_STALE_HOURS} ชั่วโมง ข้อมูลข้างล่างเป็นของรอบที่แล้ว ตรวจ scheduled task บน NAS และการส่งของเครื่อง HOSxP</p>}
+        {nas.state === "unavailable" && <p className="muted">ยังไม่มีไฟล์สถานะจาก NAS (เครื่อง HOSxP ส่งมากับรอบ upload ไป GDCC)</p>}
+        {nas.generatedAt && (
+          <>
+            <p>
+              เก็บชุดล่าสุด <strong>{nas.keepCount}</strong> ชุด · มีครบ <strong className={nas.belowKeep ? "state-warn" : undefined}>{nas.completeSets}</strong> ชุด
+              {nas.belowKeep && <span className="muted"> (น้อยกว่าที่กำหนด ระบบจะยังไม่ลบไฟล์ใด)</span>}
+            </p>
+            {nas.volume && (
+              <>
+                <div className="meter" role="img" aria-label={`NAS ใช้พื้นที่ ${nas.volume.usedPercent}%`}>
+                  <span className={`meter-fill ${nas.volume.usedPercent > 90 ? "pruning" : nas.volume.usedPercent > 80 ? "expand" : "ok"}`} style={{ width: `${Math.min(nas.volume.usedPercent, 100)}%` }} />
+                </div>
+                <p>ใช้ {nas.volume.usedPercent}% · ว่าง {gb(nas.volume.freeBytes)} จาก {gb(nas.volume.totalBytes)}</p>
+              </>
+            )}
+            {nas.days.length > 0 && (
+              <>
+                <p className={missing ? "state-bad" : "muted"}>{missing ? `ขาด ${missing} วัน ในช่วงที่เก็บอยู่` : "ครบทุกวันในช่วงที่เก็บอยู่"}</p>
+                <ul className="days">
+                  {nas.days.map((d) => (
+                    <li key={d.date} className={`day ${d.state}`}>
+                      <span>{thaiDay(d.date)}</span>
+                      <strong>{d.state === "present" ? "มีชุดครบ" : "ไม่มีชุดครบ"}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      {nas.sets.length > 0 && (
+        <div className="card table-wrap">
+          <h2>ชุดที่เก็บบน NAS</h2>
+          <table>
+            <thead><tr><th>วันที่ backup</th><th>ไฟล์ ZIP</th><th>ขนาด</th></tr></thead>
+            <tbody>
+              {nas.sets.map((set) => (
+                <tr key={set.date + set.zipName}><td>{thaiDay(set.date)}</td><td><code>{set.zipName}</code></td><td>{gb(set.zipBytes)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          {nas.deletedFiles.length > 0 && (
+            <p className="muted">
+              รอบล่าสุดลบไฟล์เก่า {nas.deletedFiles.length} ไฟล์: {nas.deletedFiles.slice(0, 10).map((f) => <code key={f}>{f}</code>).reduce<React.ReactNode[]>((acc, el, i) => (i ? [...acc, " ", el] : [el]), [])}
+            </p>
+          )}
         </div>
       )}
     </>

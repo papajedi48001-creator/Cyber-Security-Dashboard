@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { MAX_STATUS_BYTES, readFilesStatus, writeDestroyInstruction } from "./exchange";
+import { MAX_STATUS_BYTES, nasStatusPath, readFilesStatus, readNasStatus, writeDestroyInstruction } from "./exchange";
 
 describe("GDCC files exchange", () => {
   it("writes each destroy instruction once under its id, never half-written", async () => {
@@ -32,5 +32,17 @@ describe("GDCC files exchange", () => {
       JSON.stringify({ schema: 1, generated_at: "2026-11-27T03:50:00Z", volume: { total_bytes: 10, used_bytes: 5, free_bytes: 5 }, max_use_percent: 85, keep_min: 2, files: [], inbox_pending: 0, pruned: [], corrupt: [], requests: [] }),
     );
     expect((await readFilesStatus(path))?.keepMin).toBe(2);
+  });
+
+  it("reads the NAS status that sync keeps beside the GDCC status", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "status-"));
+    const status = join(dir, "status.json");
+    expect(nasStatusPath(status)).toBe(join(dir, "nas-status.json"));
+    expect(await readNasStatus(status)).toBeNull();
+    await writeFile(
+      nasStatusPath(status),
+      JSON.stringify({ schema: 1, generated_at: "2026-11-26T22:10:00Z", keep_count: 15, complete_sets: 0, newest_set_date: null, oldest_set_date: null, sets: [], deleted_files: [], free_bytes: 1, total_bytes: 2, last_run_ok: true, error: null }),
+    );
+    expect((await readNasStatus(status))?.keep_count).toBe(15);
   });
 });

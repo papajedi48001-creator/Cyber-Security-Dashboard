@@ -28,9 +28,12 @@ store (GDCC VM, every few minutes)
     volume use, automatic pruning and request outcomes. File names only:
     nothing from inside a backup.
 
+    The NAS retention status that the HOSxP server uploads with each run
+    (hosxp-nas-status.json) is passed on unchanged as status/nas-status.json.
+
 sync (Portal server, every few minutes)
     Pushes approved request files from the Portal's outbox to the GDCC
-    requests directory and fetches the status file, with an SFTP key that is
+    requests directory and fetches the status files, with an SFTP key that is
     chrooted to those two directories and cannot reach the backups.
 
 Standard library only; runs on Python 3.6 (EL8) and later. Never prints the
@@ -364,10 +367,38 @@ def _write_status(options, history, now, volume_usage):
     })
 
 
+NAS_STATUS_UPLOAD = "hosxp-nas-status.json"
+NAS_STATUS_NAME = "nas-status.json"
+MAX_NAS_STATUS_BYTES = 256 * 1024
+
+
+def _pass_nas_status(upload, status_path):
+    """The HOSxP server uploads the NAS retention status with each run; hand it to the Portal unchanged."""
+    try:
+        valid = upload.stat().st_size <= MAX_NAS_STATUS_BYTES and isinstance(json.loads(upload.read_text()), dict)
+    except (OSError, ValueError):
+        valid = False
+    if valid and status_path:
+        target = status_path.parent / NAS_STATUS_NAME
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(str(upload), 0o640)
+        if os.geteuid() == 0:
+            os.chown(str(upload), 0, target.parent.stat().st_gid)
+        os.replace(str(upload), str(target))
+        log("store.nas_status")
+    else:
+        upload.unlink()
+        if not valid:
+            log("store.nas_status_rejected")
+
+
 def store(options, disk_used_percent=disk_used_percent, on_delete=None, now=None, volume_usage=volume_usage):
     now = time.time() if now is None else now
     result = {"stored": [], "corrupt": [], "pruned": []}
     history = _load_history(options.history_path)
+    nas_status = options.inbox / NAS_STATUS_UPLOAD
+    if nas_status.is_file():
+        _pass_nas_status(nas_status, options.status_path)
     for entry in sorted(options.inbox.iterdir()):
         if entry.name.startswith("."):
             if now - entry.stat().st_mtime > PARTIAL_MAX_AGE_SECONDS:
@@ -418,6 +449,7 @@ def store(options, disk_used_percent=disk_used_percent, on_delete=None, now=None
 
 REMOTE_REQUESTS = "/requests"
 REMOTE_STATUS = "/status/status.json"
+REMOTE_NAS_STATUS = "/status/nas-status.json"
 REQUEST_FILE = re.compile(r"^[A-Za-z0-9_-]{1,64}\.json$")
 MAX_STATUS_BYTES = 1024 * 1024
 
@@ -434,6 +466,8 @@ def sync(options):
             part = "{}/.{}.part".format(REMOTE_REQUESTS, path.name)
             lines += ["put {} {}".format(path, part), "rename {} {}/{}".format(part, REMOTE_REQUESTS, path.name)]
         lines.append("get {} {}".format(REMOTE_STATUS, fetched))
+        fetched_nas = Path(work) / NAS_STATUS_NAME
+        lines.append("-get {} {}".format(REMOTE_NAS_STATUS, fetched_nas))  # absent until the HOSxP server sends one
         command = ["sftp", "-b", "-", "-i", options.key, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
                    "-o", "ServerAliveInterval=30", options.destination]
         try:
@@ -457,6 +491,12 @@ def sync(options):
             return 1
         os.chmod(str(fetched), 0o640)
         os.replace(str(fetched), str(options.status_file))
+        try:
+            if fetched_nas.stat().st_size <= MAX_NAS_STATUS_BYTES and isinstance(json.loads(fetched_nas.read_text()), dict):
+                os.chmod(str(fetched_nas), 0o640)
+                os.replace(str(fetched_nas), str(options.status_file.parent / NAS_STATUS_NAME))
+        except (OSError, ValueError):
+            pass
     log("sync.done", sent=len(pending))
     return 0
 

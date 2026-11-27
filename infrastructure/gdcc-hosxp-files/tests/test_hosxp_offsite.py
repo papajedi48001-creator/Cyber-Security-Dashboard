@@ -406,6 +406,21 @@ class ManagedStoreTestCase(StoreFixture, unittest.TestCase):
         self.assertTrue((self.store / old).exists())
         self.assertEqual(len(self.read_status()["requests"]), 1)
 
+    def test_passes_the_nas_status_from_the_inbox_to_the_portal(self):
+        (self.inbox / "hosxp-nas-status.json").write_text('{"schema": 1, "keep_count": 15}')
+        self.run_managed()
+        nas = self.status.parent / "nas-status.json"
+        self.assertEqual(json.loads(nas.read_text()), {"schema": 1, "keep_count": 15})
+        self.assertEqual(stat.S_IMODE(nas.stat().st_mode), 0o640)
+        self.assertFalse((self.inbox / "hosxp-nas-status.json").exists())
+        self.assertEqual(self.read_status()["inbox_pending"], 0)
+
+    def test_drops_a_nas_status_that_is_not_a_json_object(self):
+        (self.inbox / "hosxp-nas-status.json").write_text("[1, 2]")
+        self.run_managed()
+        self.assertFalse((self.status.parent / "nas-status.json").exists())
+        self.assertFalse((self.inbox / "hosxp-nas-status.json").exists())
+
     def test_status_lists_automatic_pruning_for_the_portal(self):
         for day in ("22", "24", "26"):
             self.put(day)
@@ -453,6 +468,17 @@ class SyncTestCase(unittest.TestCase):
         self.assertEqual(list(self.outbox.glob("*.json")), [])
         self.assertTrue((self.outbox / "sent" / "req-1.json").exists())
         self.assertEqual(self.status_file.read_text(), '{"schema": 1}')
+
+    def test_fetches_the_nas_status_when_gdcc_has_one(self):
+        (self.remote / "status" / "status.json").write_text('{"schema": 1}')
+        (self.remote / "status" / "nas-status.json").write_text('{"schema": 1, "nas": true}')
+        self.assertEqual(self.run_sync(), 0)
+        self.assertEqual((self.status_file.parent / "nas-status.json").read_text(), '{"schema": 1, "nas": true}')
+
+    def test_works_before_any_nas_status_exists(self):
+        (self.remote / "status" / "status.json").write_text('{"schema": 1}')
+        self.assertEqual(self.run_sync(), 0)
+        self.assertFalse((self.status_file.parent / "nas-status.json").exists())
 
     def test_keeps_requests_and_the_old_status_when_gdcc_is_unreachable(self):
         (self.outbox / "req-1.json").write_text('{"id": "req-1"}')

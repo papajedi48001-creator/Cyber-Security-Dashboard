@@ -51,7 +51,7 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="state-ok" role="status">{notice}</p>}
-      <p><Link href="/backups/files">ดูไฟล์ backup HOSxP ที่เก็บบน GDCC</Link></p>
+      <p><Link href="/backups/files">ดูไฟล์ backup HOSxP บน NAS และ GDCC</Link></p>
       <div className="card table-wrap">
         <table>
           <thead>

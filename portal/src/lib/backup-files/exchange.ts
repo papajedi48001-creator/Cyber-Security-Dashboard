@@ -3,7 +3,8 @@
 // instructions into an outbox that sync pushes; it never connects to GDCC itself.
 
 import { mkdir, readFile, rename, stat, writeFile, chmod } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { parseNasStatus, type NasStatus } from "./nas";
 import type { DestroyInstruction } from "./service";
 import { parseFilesStatus, type FilesStatus } from "./status";
 
@@ -14,6 +15,19 @@ export async function readFilesStatus(path: string): Promise<FilesStatus | null>
   try {
     if ((await stat(path)).size > MAX_STATUS_BYTES) return null;
     return parseFilesStatus(await readFile(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/** sync stores the NAS retention status beside the GDCC status. */
+export const nasStatusPath = (statusPath: string) => join(dirname(statusPath), "nas-status.json");
+
+export async function readNasStatus(statusPath: string): Promise<NasStatus | null> {
+  const path = nasStatusPath(statusPath);
+  try {
+    if ((await stat(path)).size > MAX_STATUS_BYTES) return null;
+    return parseNasStatus(await readFile(path, "utf8"));
   } catch {
     return null;
   }
