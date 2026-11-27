@@ -1,0 +1,31 @@
+-- GDCC Portal database replica setup (ADR 0009). Replace CHANGE_ME with values
+-- from the Secrets Vault when running; never save real passwords in this file.
+
+-- ===== On the PRIMARY (hospital) =====
+-- Through the SSH reverse tunnel the replica's connection arrives from 127.0.0.1.
+-- With a site-to-site VPN, use the replica's VPN address instead.
+CREATE USER 'repl'@'127.0.0.1' IDENTIFIED BY 'CHANGE_ME' REQUIRE SSL;
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'127.0.0.1';
+
+-- Seed (shell, on the primary):
+--   mariadb-dump --single-transaction --gtid --master-data=1 --databases portal > portal-seed.sql
+-- Copy portal-seed.sql to the GDCC VM over SSH and load it there.
+
+-- ===== On the REPLICA (GDCC VM) =====
+-- After loading the seed, which sets gtid_slave_pos:
+CHANGE MASTER TO
+  MASTER_HOST = 'portal-db-primary',  -- /etc/hosts: 127.0.0.1 portal-db-primary (tunnel)
+  MASTER_PORT = 13306,                -- tunnel port; 3306 over VPN
+  MASTER_USER = 'repl',
+  MASTER_PASSWORD = 'CHANGE_ME',
+  MASTER_SSL = 1,
+  MASTER_SSL_CA = '/etc/mysql/tls/ca.crt',
+  MASTER_SSL_VERIFY_SERVER_CERT = 1,
+  MASTER_CONNECT_RETRY = 30,
+  MASTER_USE_GTID = slave_pos;
+START SLAVE;
+
+-- Monitor-only account used by the Portal worker (PORTAL_REPLICA_MONITOR_URL).
+-- Through the tunnel's local forward it also arrives from 127.0.0.1.
+CREATE USER 'portal-monitor'@'127.0.0.1' IDENTIFIED BY 'CHANGE_ME';
+GRANT SLAVE MONITOR ON *.* TO 'portal-monitor'@'127.0.0.1';

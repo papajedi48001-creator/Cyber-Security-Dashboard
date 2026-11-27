@@ -1,0 +1,4 @@
+# GDCC VM: /home/tunnel/.ssh/authorized_keys (account with no shell: usermod -s /usr/sbin/nologin tunnel)
+# The key may only open the two forwards the tunnel needs. `restrict` alone still allows
+# running commands, so command="/bin/false" is required (the lab test checks this).
+restrict,port-forwarding,command="/bin/false",permitlisten="127.0.0.1:13306",permitopen="127.0.0.1:3306" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXAMPLEEXAMPLEEXAMPLEEXAMPLEEXAMPLEEXAMPL gdcc-tunnel@portal

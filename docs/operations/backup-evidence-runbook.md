@@ -14,6 +14,8 @@ Portal เก็บ **หลักฐาน** ว่างานสำรอง�
 
 ## บันทึกผลประจำวัน
 
+งานที่ใช้ `gdcc_backup.py` ส่งผลเข้า Portal เองผ่าน Backup Evidence Inbox ([gdcc-backup-and-replica-runbook.md](./gdcc-backup-and-replica-runbook.md)) ไม่ต้องบันทึกด้วยมือ ขั้นตอนข้างล่างใช้กับระบบ backup อื่น
+
 1. เปิดหน้า Backup ใน Portal
 2. บันทึกผลจากรายงานของระบบ backup ทีละงาน หรือนำเข้า CSV ที่ส่งออกจากระบบ backup รูปแบบ
    `job,result,completed_at,size_bytes,encrypted,retention_until` (เวลาเป็น UTC แบบ ISO 8601)

@@ -67,6 +67,35 @@ jobs:
       - name: Run decoder, rule and lifecycle tests
         run: python3 -m unittest discover -s infrastructure/wazuh/tests -v
 
+  gdcc-backup:
+    name: GDCC backup and replica config tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m unittest discover -s infrastructure/gdcc-backup/tests -v
+      - run: python3 -m unittest discover -s infrastructure/gdcc-replica/tests -v
+      - run: python3 -m unittest discover -s infrastructure/gdcc-hosxp-files/tests -v
+
+  gdcc-replica-lab:
+    name: GDCC replica rehearsal (MariaDB over SSH tunnel)
+    # Same MariaDB 10.11 as the Portal job and the hospital servers.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MariaDB, OpenSSH and autossh
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-server openssh-server autossh
+      - name: Let the lab mariadbd use its temporary data directories
+        # Ubuntu's AppArmor profile limits mariadbd to /var/lib/mysql; the lab uses throwaway directories.
+        run: |
+          for profile in /etc/apparmor.d/usr.sbin.mariadbd /etc/apparmor.d/usr.sbin.mysqld; do
+            if [ -f "$profile" ]; then sudo apparmor_parser -R "$profile" || true; fi
+          done
+      - name: Run rehearsal
+        run: sudo infrastructure/gdcc-replica/lab/run-lab.sh
+
   operations-records:
     name: Operations record validator tests
     runs-on: ubuntu-latest
@@ -77,7 +106,8 @@ jobs:
 
   portal:
     name: Portal typecheck, tests, build and browser flows
-    runs-on: ubuntu-latest
+    # Playwright 1.55 cannot install Chromium on ubuntu-latest (26.04); pin until Playwright is upgraded.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: portal

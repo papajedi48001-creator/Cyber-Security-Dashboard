@@ -41,6 +41,7 @@ export interface EvidenceInput {
 const NAME = /^[A-Za-z0-9._-]{1,128}$/;
 const NATIONAL_ID = /(?<!\d)\d{13}(?!\d)/;
 const EVIDENCE_WINDOW = 50;
+const GDCC_BACKUP_ACTOR = "system:gdcc-backup";
 
 function validDate(value: Date, field: string): Date {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) throw new BackupValidationError(`${field} ไม่ถูกต้อง`);
@@ -63,7 +64,7 @@ export function createBackupService({ store, audit, clock = () => new Date() }: 
     return found;
   }
 
-  async function addEvidence(actor: Actor, input: EvidenceInput, correlationId: string) {
+  async function addEvidence(recordedById: string, input: EvidenceInput) {
     const target = await job(input.jobName);
     if (input.result !== "SUCCESS" && input.result !== "FAILED") throw new BackupValidationError("ผลต้องเป็น SUCCESS หรือ FAILED");
     const completedAt = validDate(input.completedAt, "เวลาที่เสร็จ");
@@ -78,9 +79,38 @@ export function createBackupService({ store, audit, clock = () => new Date() }: 
       sizeBytes: input.sizeBytes,
       encrypted: input.encrypted,
       retentionUntil: input.retentionUntil,
-      recordedById: actor.id,
+      recordedById,
     });
     return target;
+  }
+
+  /** CSV: job,result,completed_at,size_bytes,encrypted,retention_until (header optional). */
+  async function importReport(recordedById: string, csv: string) {
+    const rejected: { line: number; reason: string }[] = [];
+    let imported = 0;
+    const lines = csv.split(/\r?\n/);
+    if (lines.length > 2000) throw new BackupValidationError("ไฟล์ยาวเกิน 2000 บรรทัด");
+    for (const [index, raw] of lines.entries()) {
+      const line = raw.trim();
+      if (!line || (index === 0 && /^job\s*,/i.test(line))) continue;
+      const [jobName = "", result = "", completed = "", size = "", encrypted = "", retention = ""] = line.split(",").map((c) => c.trim());
+      try {
+        if (!/^(yes|no|true|false)$/i.test(encrypted)) throw new BackupValidationError("encrypted ต้องเป็น yes หรือ no");
+        await addEvidence(recordedById, {
+          jobName,
+          result: result.toUpperCase() as EvidenceInput["result"],
+          completedAt: new Date(completed),
+          sizeBytes: size ? Number(size) : null,
+          encrypted: /^(yes|true)$/i.test(encrypted),
+          retentionUntil: retention ? new Date(retention) : null,
+        });
+        imported++;
+      } catch (error) {
+        if (!(error instanceof BackupValidationError)) throw error;
+        rejected.push({ line: index + 1, reason: error.message });
+      }
+    }
+    return { imported, rejected };
   }
 
   const service = {
@@ -125,7 +155,7 @@ export function createBackupService({ store, audit, clock = () => new Date() }: 
 
     async recordBackupEvidence(actor: Actor, input: EvidenceInput, correlationId: string) {
       requirePermission(actor, "backup.record");
-      const target = await addEvidence(actor, input, correlationId);
+      const target = await addEvidence(actor.id, input);
       await record(actor, "backup.evidence_recorded", target, correlationId, { result: input.result, encrypted: input.encrypted });
     },
 
@@ -152,39 +182,28 @@ export function createBackupService({ store, audit, clock = () => new Date() }: 
      */
     async importBackupReport(actor: Actor, csv: string, correlationId: string) {
       requirePermission(actor, "backup.record");
-      const rejected: { line: number; reason: string }[] = [];
-      let imported = 0;
-      const lines = csv.split(/\r?\n/);
-      if (lines.length > 2000) throw new BackupValidationError("ไฟล์ยาวเกิน 2000 บรรทัด");
-      for (const [index, raw] of lines.entries()) {
-        const line = raw.trim();
-        if (!line || (index === 0 && /^job\s*,/i.test(line))) continue;
-        const [jobName = "", result = "", completed = "", size = "", encrypted = "", retention = ""] = line.split(",").map((c) => c.trim());
-        try {
-          if (!/^(yes|no|true|false)$/i.test(encrypted)) throw new BackupValidationError("encrypted ต้องเป็น yes หรือ no");
-          await addEvidence(
-            actor,
-            {
-              jobName,
-              result: result.toUpperCase() as EvidenceInput["result"],
-              completedAt: new Date(completed),
-              sizeBytes: size ? Number(size) : null,
-              encrypted: /^(yes|true)$/i.test(encrypted),
-              retentionUntil: retention ? new Date(retention) : null,
-            },
-            correlationId,
-          );
-          imported++;
-        } catch (error) {
-          if (!(error instanceof BackupValidationError)) throw error;
-          rejected.push({ line: index + 1, reason: error.message });
-        }
-      }
+      const { imported, rejected } = await importReport(actor.id, csv);
       await audit.append({
         actor: { id: actor.id, label: actor.username },
         action: "backup.report_imported",
         target: { type: "BackupReport" },
         metadata: { imported, rejected: rejected.length },
+        correlationId,
+      });
+      return { imported, rejected };
+    },
+
+    /**
+     * Evidence written by the GDCC backup wrapper and delivered to the Portal
+     * inbox (ADR 0009). Recorded by the system; unknown jobs are rejected, never created.
+     */
+    async importSystemReport(csv: string, source: string, correlationId: string) {
+      const { imported, rejected } = await importReport(GDCC_BACKUP_ACTOR, csv);
+      await audit.append({
+        actor: { id: null, label: GDCC_BACKUP_ACTOR },
+        action: "backup.report_imported",
+        target: { type: "BackupReport" },
+        metadata: { source: source.slice(0, 128), imported, rejected: rejected.length },
         correlationId,
       });
       return { imported, rejected };

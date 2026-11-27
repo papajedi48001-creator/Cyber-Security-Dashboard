@@ -14,6 +14,8 @@
 | Index ข้อมูล | snapshot repository `gdcc-archive` | ทุกวัน (snapshot ล่าสุด) + lifecycle | [log-archive-runbook.md](./log-archive-runbook.md) |
 | ISM policy, index template | export ผ่าน API | ทุกครั้งที่เปลี่ยน | เก็บใน repo นี้ |
 
+config, certificate และ security config สำรองด้วย `gdcc_backup.py` (restic) ตาม [gdcc-backup-and-replica-runbook.md](./gdcc-backup-and-replica-runbook.md)
+
 Backup ทั้งหมดเข้ารหัสก่อนส่ง GDCC กุญแจเก็บใน Secrets Vault และกู้ได้ด้วย Dual-Control Key Recovery (อย่างน้อย 2 คน) เท่านั้น ห้ามเก็บกุญแจไว้บนเครื่อง Wazuh หรือพื้นที่เดียวกับ backup
 
 ## ลำดับการกู้คืน

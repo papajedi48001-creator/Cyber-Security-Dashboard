@@ -1,0 +1,13 @@
+# Portal MariaDB replica (GDCC VM) — /etc/mysql/mariadb.conf.d/60-gdcc-replica.cnf
+# ADR 0009. Data directory on an encrypted (LUKS) volume. Same MariaDB major version as the primary.
+[mariadb]
+server_id          = 2
+read_only          = ON
+gtid_strict_mode   = ON
+relay_log          = portal-relay
+relay_log_recovery = ON
+# Only the Portal database; user accounts of the primary are not copied.
+replicate_do_db    = portal
+skip_name_resolve  = ON
+# Reachable only through the SSH tunnel (or the VPN interface, never the internet).
+bind_address       = 127.0.0.1
