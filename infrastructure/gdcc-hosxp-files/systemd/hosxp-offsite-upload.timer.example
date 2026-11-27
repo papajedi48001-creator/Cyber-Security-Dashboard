@@ -4,7 +4,7 @@
 Description=Copy HOSxP daily backup files to GDCC
 
 [Timer]
-OnCalendar=*-*-* 05:00,08:00,12:00 Asia/Bangkok
+OnCalendar=*-*-* 05,08,12:00:00 Asia/Bangkok
 Persistent=true
 RandomizedDelaySec=300
 
