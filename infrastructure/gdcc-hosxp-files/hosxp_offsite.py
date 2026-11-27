@@ -7,8 +7,11 @@ upload (HOSxP server, after the nightly backup has finished)
     Sends each finished ZIP from the last few days that has not been sent yet,
     over SFTP with a key that can only write into the GDCC inbox. Each file is
     written under a dot name and renamed when complete, together with a SHA-256
-    sidecar. A file much smaller than the recent ones is not sent: it is
-    recorded as FAILED, because a tiny nightly backup means the backup broke.
+    sidecar. A file much smaller than the recent ones, or whose ZIP directory
+    cannot be read (the backup stopped mid-write), is not sent: it is recorded
+    as FAILED. The inner table files are password-protected by the HOSxP backup
+    program, so their contents cannot be tested here; the password is kept off
+    the GDCC VM.
     One Backup Evidence line per file goes to an outbox for the Portal:
 
         job,result,completed_at,size_bytes,encrypted,retention_until
@@ -34,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 from pathlib import Path
 
 JOB = "hosxp-daily-zip"
@@ -138,6 +142,16 @@ def _candidates(options, now):
     return sorted(found)
 
 
+def zip_is_complete(path):
+    """True when the ZIP's central directory can be read and lists at least one file.
+    Reads only the end of the file, so it is quick even for a 35 GB backup."""
+    try:
+        with zipfile.ZipFile(str(path)) as archive:
+            return len(archive.infolist()) > 0
+    except (zipfile.BadZipFile, OSError, ValueError):
+        return False
+
+
 def _baseline(state):
     sizes = [size for _, size in sorted(state["uploaded"].items())][-HISTORY:]
     if not sizes:
@@ -176,6 +190,12 @@ def upload(options, now=None):
             state["rejected"][name] = size
             rows.append(("FAILED", now, size, False))
             log("upload.rejected", file=name, size_bytes=size, expected_at_least=floor)
+            status = 1
+            continue
+        if not zip_is_complete(path):
+            state["rejected"][name] = size
+            rows.append(("FAILED", now, size, False))
+            log("upload.rejected", file=name, size_bytes=size, reason="zip directory unreadable")
             status = 1
             continue
         with tempfile.TemporaryDirectory() as work:

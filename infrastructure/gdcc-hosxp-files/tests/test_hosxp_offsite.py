@@ -15,6 +15,7 @@ import tempfile
 import textwrap
 import time
 import unittest
+import zipfile
 
 TOOL_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOL_DIR))
@@ -53,10 +54,19 @@ FAKE_SFTP = textwrap.dedent(
 GIB = 1024 ** 3
 
 
-def make_zip(directory, name, size, age_minutes):
+def make_zip(directory, name, size, age_minutes, complete=True):
+    """A real ZIP of exactly `size` bytes, or with complete=False the same bytes cut short
+    (what a backup interrupted mid-write leaves behind)."""
     path = pathlib.Path(directory) / name
-    with open(path, "wb") as handle:
-        handle.write(os.urandom(size))
+    inner = "acc_bank_type.ZIP"
+    overhead = 30 + 46 + 22 + 2 * len(inner)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr(inner, os.urandom(max(size - overhead, 0)))
+    if not complete:
+        with open(path, "r+b") as handle:
+            handle.truncate(path.stat().st_size - 40)
+            handle.seek(0, 2)
+            handle.write(os.urandom(40))
     stamp = time.time() - age_minutes * 60
     os.utime(path, (stamp, stamp))
     return path
@@ -151,6 +161,13 @@ class UploadTestCase(unittest.TestCase):
         make_zip(self.source, "MySQL_backup_a_20261125000104.ZIP", 500, 90)
         self.assertEqual(self.run_upload(), 1)
         self.assertRegex(self.evidence()[1], r",FAILED,")
+
+    def test_refuses_a_backup_whose_zip_is_cut_short_and_records_failure(self):
+        make_zip(self.source, "MySQL_backup_a_20261126000103.ZIP", 4096, 90, complete=False)
+        self.assertEqual(self.run_upload(), 1)
+        self.assertEqual(list((self.remote / "inbox").iterdir()), [])
+        self.assertRegex(self.evidence()[1], r"^hosxp-daily-zip,FAILED,[^,]+,4096,no,$")
+        self.assertIn("MySQL_backup_a_20261126000103.ZIP", json.loads(self.state.read_text())["rejected"])
 
     def test_records_failure_when_gdcc_is_unreachable_and_retries_next_run(self):
         make_zip(self.source, "MySQL_backup_a_20261126000103.ZIP", 2048, 90)
