@@ -60,9 +60,9 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <p className="muted"><Link href="/backups">Backup Evidence</Link> / ไฟล์ HOSxP บน GDCC</p>
+      <p className="back"><Link href="/backups">← Backup Evidence</Link></p>
       <h1>ไฟล์ backup HOSxP บน GDCC</h1>
-      <p className="muted">
+      <p className="lead">
         ไฟล์ ZIP รายวันที่ส่งจากเครื่อง HOSxP ไปเก็บในดิสก์เข้ารหัสบน VM GDCC Portal เห็นเฉพาะชื่อไฟล์ ขนาด และผลตรวจ checksum
         ไม่มีปุ่มลบทันทีหรือกู้คืน การทำลายไฟล์ต้องมีผู้เสนอ ผู้อนุมัติอีกคน และช่วงพักรอ {DELETION_HOLD_HOURS} ชั่วโมงที่ยกเลิกได้
       </p>
@@ -75,7 +75,7 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
           ข้อมูลจาก GDCC: <strong className={state.className}>{state.text}</strong>
           {view.generatedAt && <span className="muted"> · รายงานล่าสุด {formatBangkok(view.generatedAt)} (เกณฑ์ {STATUS_STALE_MINUTES} นาที)</span>}
         </p>
-        {view.state === "stale" && <p className="state-bad">ข้อมูลข้างล่างเป็นของรอบที่แล้ว อาจไม่ตรงกับไฟล์ที่มีอยู่จริง และยื่นคำขอใหม่ไม่ได้จนกว่าข้อมูลจะกลับมา</p>}
+        {view.state === "stale" && <p className="card state-bad">ข้อมูลข้างล่างเป็นของรอบที่แล้ว อาจไม่ตรงกับไฟล์ที่มีอยู่จริง และยื่นคำขอใหม่ไม่ได้จนกว่าข้อมูลจะกลับมา</p>}
         {!configured && <p className="muted">ตั้ง GDCC_FILES_STATUS_PATH ใน .env ของ Portal และเปิด timer sync ตาม runbook</p>}
         {view.volume && (
           <>
@@ -146,7 +146,7 @@ export default async function BackupFilesPage({ searchParams }: { searchParams: 
                           {csrf}
                           <input type="hidden" name="fileName" value={f.name} />
                           <label>เหตุผล<textarea name="reason" rows={2} required minLength={10} maxLength={500} /></label>
-                          <label className="check">
+                          <label>
                             <input type="checkbox" name="confirm" required /> เข้าใจว่าเมื่อได้รับอนุมัติและพ้นช่วงพักรอ ไฟล์นี้จะถูกทำลายถาวรและกู้คืนไม่ได้
                           </label>
                           <button type="submit">ส่งคำขอทำลาย</button>
@@ -221,7 +221,7 @@ function RequestRow({ request: r, userId, isAdmin, csrf }: { request: BackupFile
               {csrf}
               <input type="hidden" name="id" value={r.id} />
               <label>หมายเหตุ<input name="note" maxLength={500} /></label>
-              <label className="check"><input type="checkbox" name="confirm" required /> ตรวจชื่อไฟล์และเหตุผลแล้ว</label>
+              <label><input type="checkbox" name="confirm" required /> ตรวจชื่อไฟล์และเหตุผลแล้ว</label>
               <button type="submit" formAction={approveDestroyAction}>อนุมัติ (พักรอ {DELETION_HOLD_HOURS} ชม.)</button>
               <button type="submit" className="secondary" formAction={rejectDestroyAction}>ไม่อนุมัติ</button>
             </form>
@@ -234,7 +234,7 @@ function RequestRow({ request: r, userId, isAdmin, csrf }: { request: BackupFile
               {csrf}
               <input type="hidden" name="id" value={r.id} />
               <label>หมายเหตุ<input name="note" maxLength={500} /></label>
-              <label className="check"><input type="checkbox" name="confirm" required /> ยกเลิก ไฟล์ยังเก็บไว้</label>
+              <label><input type="checkbox" name="confirm" required /> ยกเลิก ไฟล์ยังเก็บไว้</label>
               <button type="submit" className="secondary">ยกเลิกคำขอ</button>
             </form>
           </details>

@@ -46,7 +46,7 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <h1>Backup Evidence</h1>
-      <p className="muted">
+      <p className="lead">
         แสดงผลตามที่ระบบ backup รายงาน การ backup สำเร็จไม่ได้แปลว่ากู้คืนได้ ต้องมีผลทดสอบกู้คืนแยกต่างหาก Portal ไม่มีปุ่มสั่ง backup, กู้คืน หรือลบไฟล์
       </p>
       {error && <p className="error" role="alert">{error}</p>}
@@ -106,6 +106,8 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
         </div>
       ))}
 
+      {(canRecord || can(session.user, "config.manage")) && <h2 className="section-title">บันทึกข้อมูล</h2>}
+      <div className="forms">
       {canRecord && statuses.length > 0 && (
         <>
           <div className="card">
@@ -159,8 +161,9 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
           </form>
         </div>
       )}
+      </div>
 
-      <div className="card muted">
+      <div className="card muted" style={{ marginTop: 16 }}>
         การทำลายไฟล์ backup HOSxP บน GDCC ทำได้เฉพาะผ่าน <Link href="/backups/files">คำขอจัดการไฟล์</Link> ที่มีผู้อนุมัติและช่วงพักรอ Backup Deletion Hold
       </div>
     </>

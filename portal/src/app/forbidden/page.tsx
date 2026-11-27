@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function ForbiddenPage() {
   return (
-    <main>
+    <main className="login">
       <div className="card">
         <h1>ไม่มีสิทธิ์เข้าถึง</h1>
         <p>บัญชีของคุณไม่มีสิทธิ์ในหน้านี้ หรือการยืนยันคำขอไม่ถูกต้อง</p>
