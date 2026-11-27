@@ -4,6 +4,8 @@ import { formatBangkok } from "@/lib/format";
 import { SLA_LABELS } from "@/lib/incidents/labels";
 import { slaState } from "@/lib/incidents/sla";
 import { STATUS_LABELS } from "@/lib/incidents/service";
+import { can } from "@/lib/auth/authorize";
+import { visibleModules, type ModuleId } from "@/lib/modules/registry";
 import { loadSummary } from "@/lib/reporting/incident-summary";
 import { getServices } from "@/lib/server/context";
 import { requirePageSession } from "@/lib/server/session";
@@ -32,7 +34,7 @@ function Tile({ href, name, triage }: { href: string; name: string; triage: Tria
 
 export default async function OverviewPage() {
   const session = await requirePageSession("incident.read");
-  const { config, incidents, notifier, backups, ports, waf, duo } = getServices();
+  const { config, incidents, notifier, backups, ports, waf, duo, modules } = getServices();
   const now = new Date();
   const [portSnap, wafSummary, duoStatus] = await Promise.all([
     ports.getSnapshot(session.user),
@@ -52,19 +54,24 @@ export default async function OverviewPage() {
   const attention = open.filter((i) => ["breached", "due_soon"].includes(slaState(i, now)));
   const unhealthy = sources.sources.filter((s) => s.status !== "healthy");
 
+  // One tile per enabled module the role may open (ADR 0011), plus notifications from the core.
+  const triageFor: Partial<Record<ModuleId, Triage>> = {
+    incidents: incidentsTriage({ open: summary.open, attention: attention.length }),
+    "log-sources": sourcesTriage({ connectorFresh: sources.connector.status === "fresh", statuses: sources.sources.map((s) => s.status) }),
+    "cloud-backup": backupsTriage({ healths: backupStatus.map((b) => b.health), unverified }),
+    "db-replica": { level: "unknown", text: "ยังไม่มีรายงานจาก Replica Reporter" },
+    "port-exposure": portsTriage({ scanStatus: portSnap.scan.status, openExposures: openExposures.length }),
+    "cloud-waf": wafTriage({ status: wafSummary.status }),
+    duo: duoTriage({ state: duoStatus.state as Parameters<typeof duoTriage>[0]["state"] }),
+  };
+  const shown = visibleModules(session.user.role, await modules.settings()).filter((m) => can(session.user, m.routePermission));
   const board: { href: string; name: string; triage: Triage }[] = [
-    { href: "/incidents", name: "Incident", triage: incidentsTriage({ open: summary.open, attention: attention.length }) },
+    ...shown.flatMap((m) => {
+      const triage = triageFor[m.id];
+      return triage ? [{ href: m.href, name: m.name, triage }] : [];
+    }),
     {
-      href: "/sources",
-      name: "แหล่ง Log",
-      triage: sourcesTriage({ connectorFresh: sources.connector.status === "fresh", statuses: sources.sources.map((s) => s.status) }),
-    },
-    { href: "/backups", name: "Backup", triage: backupsTriage({ healths: backupStatus.map((b) => b.health), unverified }) },
-    { href: "/port-monitor", name: "พอร์ตเปิดสู่ภายนอก", triage: portsTriage({ scanStatus: portSnap.scan.status, openExposures: openExposures.length }) },
-    { href: "/web-application-firewall", name: "WAF", triage: wafTriage({ status: wafSummary.status }) },
-    { href: "/duo", name: "Duo", triage: duoTriage({ state: duoStatus.state as Parameters<typeof duoTriage>[0]["state"] }) },
-    {
-      href: "/incidents",
+      href: can(session.user, "config.manage") ? "/settings/notifications" : "/incidents",
       name: "การแจ้งเตือน",
       triage: notificationsTriage({ channels: notifier.channelsConfigured.length, failures: failures.length }),
     },

@@ -113,3 +113,31 @@ describe("failures", () => {
     expect(row.lastError!.length).toBeLessThanOrEqual(200);
   });
 });
+
+describe("test message", () => {
+  const admin = { id: "u-admin", username: "admin", role: "SECURITY_ADMINISTRATOR" as const };
+  const operator = { id: "u-op", username: "op", role: "SECURITY_OPERATOR" as const };
+
+  it("sends a fixed text with no incident data and audits it", async () => {
+    const result = await notifier.sendTest(admin, "LINE", "c-test");
+    expect(result).toEqual({ ok: true });
+    expect(line.sent).toHaveLength(1);
+    expect(line.sent[0]).toContain("ข้อความทดสอบ");
+    expect(email.sent).toHaveLength(0);
+    expect(auditStore.records.at(-1)).toMatchObject({ action: "notification.test_sent", actorId: "u-admin", targetId: "LINE" });
+  });
+
+  it("reports a failure without credentials and audits it", async () => {
+    email.failWith = "auth failed password=hunter2";
+    const result = await notifier.sendTest(admin, "EMAIL", "c-test");
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("hunter2");
+    expect(auditStore.records.at(-1)).toMatchObject({ action: "notification.test_failed" });
+  });
+
+  it("refuses an unconfigured channel and non-administrators", async () => {
+    const lineOnly = createNotifier({ store, channels: [line], audit: createAuditLog(auditStore), portalBaseUrl: "https://portal.example" });
+    expect(await lineOnly.sendTest(admin, "EMAIL", "c")).toEqual({ ok: false, error: "ช่องทาง EMAIL ยังไม่ได้ตั้งค่า" });
+    await expect(notifier.sendTest(operator, "LINE", "c")).rejects.toThrow();
+  });
+});

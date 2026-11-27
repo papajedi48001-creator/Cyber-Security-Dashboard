@@ -26,7 +26,7 @@ export async function createUserAction(_state: EnrollmentState, form: FormData):
       password: form.get("password")?.toString() ?? "",
       correlationId: newCorrelationId(),
     });
-    revalidatePath("/admin/users");
+    revalidatePath("/settings/users");
     return { username: enrollment.user.username, otpauthUri: enrollment.otpauthUri };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "สร้างผู้ใช้ไม่สำเร็จ" };
@@ -55,5 +55,5 @@ export async function setActiveAction(form: FormData): Promise<void> {
     active: form.get("active") === "true",
     correlationId: newCorrelationId(),
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/settings/users");
 }

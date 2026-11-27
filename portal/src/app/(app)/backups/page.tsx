@@ -4,7 +4,7 @@ import type { BackupHealth } from "@/lib/backups/status";
 import { MAX_HEALTHY_LAG_SECONDS, replicaView, type ReplicaViewState } from "@/lib/replica/status";
 import { formatBangkok } from "@/lib/format";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { createJobAction, importReportAction, recordEvidenceAction, recordVerificationAction } from "./actions";
 
 const HEALTH: Record<BackupHealth, { text: string; className: string }> = {
@@ -27,7 +27,7 @@ const REPLICA: Record<ReplicaViewState, { text: string; className: string }> = {
 const gb = (bytes: number | null) => (bytes === null ? "-" : `${(bytes / 1024 ** 3).toFixed(1)} GB`);
 
 export default async function BackupsPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
-  const session = await requirePageSession("evidence.read");
+  const session = await requireModulePage("cloud-backup");
   const { error, notice } = await searchParams;
   const services = getServices();
   const statuses = await services.backups.listBackupStatus(session.user);

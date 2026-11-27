@@ -1,48 +1,40 @@
-import { can, ROLE_LABELS, type Permission } from "@/lib/auth/authorize";
+import { can, ROLE_LABELS } from "@/lib/auth/authorize";
 import type { ValidSession } from "@/lib/auth/service";
+import { visibleModules, type ModuleSettings } from "@/lib/modules/registry";
 import { NavLinks, type NavGroup } from "./NavLinks";
 
-const NAV: { label: string; items: { href: string; label: string; permission: Permission }[] }[] = [
-  {
-    label: "เฝ้าระวัง",
-    items: [
-      { href: "/overview", label: "ภาพรวม", permission: "incident.read" },
-      { href: "/incidents", label: "Incident", permission: "incident.read" },
-      { href: "/sources", label: "แหล่ง Log", permission: "source.read" },
-    ],
-  },
-  {
-    label: "หลักฐาน",
-    items: [
-      { href: "/backups", label: "Backup", permission: "evidence.read" },
-      { href: "/port-monitor", label: "พอร์ต", permission: "evidence.read" },
-      { href: "/web-application-firewall", label: "WAF", permission: "evidence.read" },
-      { href: "/duo", label: "Duo", permission: "evidence.read" },
-    ],
-  },
-  {
-    label: "รายงาน",
-    items: [{ href: "/executive", label: "รายงานผู้บริหาร", permission: "executive.read" }],
-  },
-  {
-    label: "ดูแลระบบ",
-    items: [
-      { href: "/assets", label: "Asset", permission: "asset.read" },
-      { href: "/admin/users", label: "ผู้ใช้", permission: "user.manage" },
-    ],
-  },
+export const PRODUCT_NAME = "Waritchaphum Security Dashboard";
+
+/** System Settings pages (ADR 0011), shown to Security Administrators only. */
+const SETTINGS_NAV = [
+  { href: "/settings/modules", label: "โมดูล" },
+  { href: "/settings/users", label: "ผู้ใช้และสิทธิ์" },
+  { href: "/settings/notifications", label: "การแจ้งเตือน" },
+  { href: "/settings/connectors", label: "การเชื่อมต่อ" },
+  { href: "/settings/audit", label: "บันทึกการใช้งาน" },
 ];
 
-export function AppShell({ session, children }: { session: ValidSession; children: React.ReactNode }) {
-  const groups: NavGroup[] = NAV.map((group) => ({
-    label: group.label,
-    items: group.items.filter((item) => can(session.user, item.permission)).map(({ href, label }) => ({ href, label })),
-  })).filter((group) => group.items.length > 0);
+export function AppShell({
+  session,
+  moduleSettings,
+  children,
+}: {
+  session: ValidSession;
+  moduleSettings: ModuleSettings;
+  children: React.ReactNode;
+}) {
+  // A module link shows only when the module is on and the role may open its page.
+  const modules = visibleModules(session.user.role, moduleSettings).filter((m) => can(session.user, m.routePermission));
+  const groups: NavGroup[] = [
+    { label: "ภาพรวม", items: can(session.user, "incident.read") ? [{ href: "/overview", label: "ภาพรวม" }] : [] },
+    { label: "โมดูล", items: modules.map((m) => ({ href: m.href, label: m.name })) },
+    { label: "ตั้งค่าระบบ", items: can(session.user, "config.manage") ? SETTINGS_NAV : [] },
+  ].filter((group) => group.items.length > 0);
   return (
     <div className="shell">
       <header className="rail">
         <div className="brand">
-          <strong>Security Operations Portal</strong>
+          <strong>{PRODUCT_NAME}</strong>
           <span>โรงพยาบาลวาริชภูมิ</span>
         </div>
         <NavLinks groups={groups} />

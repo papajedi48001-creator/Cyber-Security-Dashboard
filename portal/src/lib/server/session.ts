@@ -1,9 +1,10 @@
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { can, type Permission } from "../auth/authorize";
 import { SESSION_COOKIE } from "../auth/gate";
 import { clientIp } from "../auth/network";
 import type { ValidSession } from "../auth/service";
+import { accessFor, getModule, isModuleEnabled, type ModuleId } from "../modules/registry";
 import { getServices } from "./context";
 
 export async function currentSession(): Promise<ValidSession | null> {
@@ -16,6 +17,18 @@ export async function requirePageSession(permission: Permission): Promise<ValidS
   const session = await currentSession();
   if (!session) redirect("/login");
   if (!can(session.user, permission)) redirect("/forbidden");
+  return session;
+}
+
+/**
+ * For module pages: the module must be enabled (otherwise 404), and the role must
+ * hold both the module access in the registry and the page permission.
+ */
+export async function requireModulePage(id: ModuleId): Promise<ValidSession> {
+  const mod = getModule(id);
+  const session = await requirePageSession(mod.routePermission);
+  if (accessFor(session.user.role, id) === "none") redirect("/forbidden");
+  if (!isModuleEnabled(id, await getServices().modules.settings())) notFound();
   return session;
 }
 

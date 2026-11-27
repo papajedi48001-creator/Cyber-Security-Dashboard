@@ -1,3 +1,5 @@
+import { compareNewestFirst, type AuditQuery, type AuditQueryStore } from "./audit-reader";
+
 // Append-only audit trail for every Portal mutation, connector action and
 // configuration change. The database also rejects UPDATE/DELETE (migration trigger).
 
@@ -107,12 +109,20 @@ export function createAuditLog(store: AuditStore, clock: () => Date = () => new 
 }
 
 /** Test and development store. */
-export class InMemoryAuditStore implements AuditStore {
+export class InMemoryAuditStore implements AuditStore, AuditQueryStore {
   readonly records: AuditRecord[] = [];
 
   async append(record: NewAuditRecord): Promise<AuditRecord> {
     const stored = Object.freeze({ ...record, id: `audit-${this.records.length + 1}` });
     this.records.push(stored);
     return stored;
+  }
+
+  async query(query: AuditQuery): Promise<AuditRecord[]> {
+    return this.records
+      .filter((r) => !query.actionPrefix || r.action.startsWith(query.actionPrefix))
+      .filter((r) => !query.before || compareNewestFirst(r, query.before) > 0)
+      .sort(compareNewestFirst)
+      .slice(0, query.limit);
   }
 }

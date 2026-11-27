@@ -62,7 +62,7 @@ test.describe("Executive Viewer", () => {
   test("sees only the summary and is refused technical pages", async ({ page }) => {
     await page.goto("/executive");
     await expect(page.getByRole("heading", { name: "รายงานผู้บริหาร" })).toBeVisible();
-    await expect(page.getByRole("navigation").getByRole("link", { name: "Incident" })).toHaveCount(0);
+    await expect(page.getByRole("navigation").getByRole("link", { name: "เหตุการณ์ความปลอดภัย" })).toHaveCount(0);
     await expect(page.getByText("E2E suspicious admin login")).toHaveCount(0);
     for (const path of ["/incidents", "/overview", "/sources", "/assets", "/admin/users"]) {
       await page.goto(path);

@@ -4,6 +4,7 @@ export const E2E_ENV: Record<string, string> = {
   DATABASE_URL: process.env.DATABASE_URL ?? "mysql://portal:portal-test-only@127.0.0.1:3306/portal_test",
   SESSION_SECRET: "e2e-session-secret-not-for-production-use-0000",
   TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 11).toString("base64"),
+  SETTINGS_ENCRYPTION_KEY: Buffer.alloc(32, 13).toString("base64"),
   PORTAL_BASE_URL: "https://portal.e2e.example",
   TRUSTED_NETWORKS: "192.0.2.0/24",
   WAZUH_INDEXER_URL: "https://127.0.0.1:9",

@@ -281,3 +281,20 @@ main.login { max-width: none; min-height: 100vh; display: grid; place-items: cen
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Core platform pages (ADR 0011): System Settings, connectors, module toggles. */
+.crumb { color: var(--ink-soft); font-size: var(--fs-small); margin: 0 0 2px; }
+.small { font-size: var(--fs-small); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button.sm { padding: 3px 10px; font-size: var(--fs-small); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 999px; font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--green); background: var(--green-wash); }
+.pill.bad { color: var(--red); background: var(--red-wash); }
+.pill.off, .pill.waiting { color: var(--grey); background: var(--hatch); }
+.tag { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 3px; white-space: nowrap; color: var(--teal-deep); background: var(--teal-wash); margin-left: 6px; }
+.notice { border-radius: var(--radius); padding: 10px 12px; background: var(--teal-wash); margin-bottom: 16px; }
+.notice.warn { background: var(--yellow-wash); border-left: 4px solid var(--yellow); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.kv dt { color: var(--ink-soft); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

@@ -11,8 +11,9 @@ import { processEvidenceInbox } from "./lib/backups/inbox";
 import { createReplicaMonitor } from "./lib/replica/service";
 import { getServices } from "./lib/server/context";
 import { silentSources } from "./lib/sources";
-import { createIndexerClient, httpsTransport } from "./lib/wazuh/client";
+import { createIndexerClient, httpsTransport, type WazuhAlertSource } from "./lib/wazuh/client";
 import { pollWazuhAlerts } from "./lib/wazuh/poller";
+import { isModuleEnabled, moduleForCycle } from "./lib/modules/registry";
 import { createWorkerCycles } from "./lib/worker/cycles";
 
 const NOTIFY_INTERVAL_MS = 30_000;
@@ -25,7 +26,7 @@ const REPLICA_INTERVAL_MS = 5 * 60_000;
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports, waf, backups, replicas } = getServices();
+const { config, audit, incidents, notifier, ports, waf, backups, replicas, modules, connectors } = getServices();
 const inbox = config.backupEvidenceInbox;
 const readReplica = config.replicaMonitorUrl ? replicaStatusReader(config.replicaMonitorUrl) : null;
 const replicaMonitors = readReplica
@@ -34,12 +35,17 @@ const replicaMonitors = readReplica
       check: createReplicaMonitor({ target, fetchStatus: readReplica(target.connection), store: target.store }).check,
     }))
   : [];
-const source = createIndexerClient({
-  baseUrl: config.wazuh.indexerUrl,
-  username: config.wazuh.username,
-  password: config.wazuh.password,
-  transport: httpsTransport(config.wazuh.caCertPath),
-});
+// Credentials come from System Settings › การเชื่อมต่อ (seeded once from the
+// environment) and are resolved on every poll, so a change needs no restart.
+const transport = httpsTransport(config.wazuh.caCertPath);
+const source: WazuhAlertSource = {
+  async searchAlerts(query) {
+    const indexer = await connectors.effective("wazuh-indexer");
+    if (!indexer?.username || !indexer.secret) throw new Error("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Wazuh Indexer");
+    return createIndexerClient({ baseUrl: indexer.target.replace(/\/$/, ""), username: indexer.username, password: indexer.secret, transport }).searchAlerts(query);
+  },
+};
+void connectors.bootstrap().catch((error) => log("connectors.bootstrap_failed", { error: String(error).slice(0, 200) }));
 const intakeStore = new PrismaIntakeStore(prisma);
 
 const cycles = createWorkerCycles({
@@ -62,8 +68,11 @@ const timers = new Map<string, NodeJS.Timeout>();
 
 /** Runs a cycle, then waits the full interval before the next one, so runs never overlap. */
 function every(name: string, intervalMs: number, cycle: () => Promise<void>) {
+  const moduleId = moduleForCycle(name);
   const run = async () => {
-    await cycle();
+    // A disabled module is not polled; its stored records stay (ADR 0011).
+    const enabled = moduleId ? isModuleEnabled(moduleId, await modules.settings().catch(() => ({}))) : true;
+    if (enabled) await cycle();
     if (!stopping) timers.set(name, setTimeout(run, intervalMs));
   };
   void run();
@@ -74,7 +83,7 @@ log("worker.started", { pollIntervalSeconds: config.wazuh.pollIntervalSeconds, c
 every("intake", config.wazuh.pollIntervalSeconds * 1000, cycles.intake);
 every("source_health", SOURCE_HEALTH_INTERVAL_MS, cycles.sourceHealth);
 every("ports", PORT_INTERVAL_MS, cycles.ports);
-if (waf.configured) every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
+every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
 if (inbox) every("backup_inbox", BACKUP_INBOX_INTERVAL_MS, cycles.backupInbox);
 if (replicaMonitors.length) every("replica", REPLICA_INTERVAL_MS, cycles.replica);

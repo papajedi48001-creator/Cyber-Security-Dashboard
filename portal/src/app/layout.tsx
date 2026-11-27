@@ -6,7 +6,7 @@ import "@fontsource/ibm-plex-sans-thai-looped/latin-600.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Security Operations Portal",
+  title: "Waritchaphum Security Dashboard",
   description: "ศูนย์เฝ้าระวังความมั่นคงปลอดภัยไซเบอร์ โรงพยาบาลวาริชภูมิ",
   robots: { index: false, follow: false },
 };

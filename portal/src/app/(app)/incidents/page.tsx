@@ -5,7 +5,7 @@ import { SLA_LABELS } from "@/lib/incidents/labels";
 import { slaState } from "@/lib/incidents/sla";
 import { STATUS_LABELS, type IncidentFilter } from "@/lib/incidents/service";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { CATEGORY_LABELS, suggestedSeverity, type Category } from "@/lib/wazuh/normalize-alert";
 import { createIncidentAction, promoteAlertAction } from "./actions";
 
@@ -16,7 +16,7 @@ const VIEWS: { value: NonNullable<IncidentFilter["view"]>; label: string }[] = [
 ];
 
 export default async function IncidentsPage({ searchParams }: { searchParams: Promise<{ view?: string; error?: string }> }) {
-  const session = await requirePageSession("incident.read");
+  const session = await requireModulePage("incidents");
   const params = await searchParams;
   const view = VIEWS.find((v) => v.value === params.view)?.value ?? "open";
   const { incidents, notifier } = getServices();

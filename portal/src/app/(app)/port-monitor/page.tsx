@@ -2,7 +2,7 @@ import { can } from "@/lib/auth/authorize";
 import { formatBangkok } from "@/lib/format";
 import { MAX_EXCEPTION_DAYS, type PortClassification } from "@/lib/port-monitor/policy";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 import { addExceptionAction, importFirewallAction, importScanAction, revokeExceptionAction } from "./actions";
 
 const CLASSIFICATION: Record<PortClassification, { text: string; className: string }> = {
@@ -13,7 +13,7 @@ const CLASSIFICATION: Record<PortClassification, { text: string; className: stri
 };
 
 export default async function PortMonitorPage({ searchParams }: { searchParams: Promise<{ error?: string; notice?: string }> }) {
-  const session = await requirePageSession("evidence.read");
+  const session = await requireModulePage("port-exposure");
   const { error, notice } = await searchParams;
   const snap = await getServices().ports.getSnapshot(session.user);
   const canImport = can(session.user, "backup.record");

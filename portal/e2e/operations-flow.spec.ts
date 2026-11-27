@@ -118,7 +118,7 @@ test("a failed backup shows as failing on the overview", async ({ browser }) => 
   await form.getByRole("button", { name: "บันทึกผล backup" }).click();
   await expect(operator.getByRole("row").filter({ hasText: job })).toContainText("ล้มเหลว");
   await operator.goto("/overview");
-  await expect(operator.getByText(`${job}: ล้มเหลว 1 ครั้งติดกัน`)).toBeVisible();
+  await expect(operator.locator(".tile").filter({ hasText: "Backup และ Cloud Backup" })).toContainText("ต้องดำเนินการ");
 });
 
 test("an expired port exception no longer hides exposure and opens an incident", async ({ browser }) => {

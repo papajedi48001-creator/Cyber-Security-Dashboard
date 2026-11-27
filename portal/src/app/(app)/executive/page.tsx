@@ -2,14 +2,14 @@ import { prisma } from "@/lib/db/client";
 import { formatBangkok } from "@/lib/format";
 import { getExecutiveSummary } from "@/lib/reporting/executive-summary";
 import { getServices } from "@/lib/server/context";
-import { requirePageSession } from "@/lib/server/session";
+import { requireModulePage } from "@/lib/server/session";
 
 const SEVERITY_NAMES = { P1: "วิกฤต", P2: "สูง", P3: "ปานกลาง", P4: "ต่ำ" } as const;
 const STATE_TEXT = { fresh: "เป็นปัจจุบัน", stale: "ไม่เป็นปัจจุบัน", error: "ดึงข้อมูลไม่สำเร็จ", unavailable: "ยังไม่มีข้อมูล", missing: "ยังไม่มีข้อมูล" };
 
 // Built from a server-side, count-only view model: nothing restricted reaches this page.
 export default async function ExecutivePage() {
-  const session = await requirePageSession("executive.read");
+  const session = await requireModulePage("executive");
   const services = getServices();
   const s = await getExecutiveSummary(session.user, { db: prisma, pollIntervalSeconds: services.config.wazuh.pollIntervalSeconds, services });
   const sources = s.monitoring.sourcesHealthy + s.monitoring.sourcesStale + s.monitoring.sourcesUnknown;

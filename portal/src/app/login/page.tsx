@@ -6,7 +6,7 @@ export default function LoginPage() {
   return (
     <main className="login">
       <div className="card">
-        <h1>Security Operations Portal</h1>
+        <h1>Waritchaphum Security Dashboard</h1>
         <p className="muted">โรงพยาบาลวาริชภูมิ ใช้ได้เฉพาะเครือข่ายบริหารจัดการหรือ VPN ที่มี MFA</p>
         <LoginForm />
       </div>

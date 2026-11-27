@@ -5,6 +5,8 @@ export interface PortalConfig {
   databaseUrl: string;
   sessionSecret: string;
   totpEncryptionKey: Buffer;
+  /** Optional until set: without it, connector settings cannot be saved in System Settings. */
+  settingsEncryptionKey: Buffer | null;
   portalBaseUrl: string;
   trustedNetworks: string[];
   timeZone: "Asia/Bangkok";
@@ -74,6 +76,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const totpKeyText = required("TOTP_ENCRYPTION_KEY");
   const totpEncryptionKey = Buffer.from(totpKeyText, "base64");
   if (totpKeyText && totpEncryptionKey.length !== 32) fail("TOTP_ENCRYPTION_KEY", "must be 32 bytes, base64-encoded");
+
+  const settingsKeyText = env.SETTINGS_ENCRYPTION_KEY?.trim();
+  const settingsEncryptionKey = settingsKeyText ? Buffer.from(settingsKeyText, "base64") : null;
+  if (settingsEncryptionKey && settingsEncryptionKey.length !== 32) fail("SETTINGS_ENCRYPTION_KEY", "must be 32 bytes, base64-encoded");
 
   const portalBaseUrl = required("PORTAL_BASE_URL");
   if (portalBaseUrl && !isHttpsUrl(portalBaseUrl)) fail("PORTAL_BASE_URL", "must be an https:// URL");
@@ -153,6 +159,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     databaseUrl,
     sessionSecret,
     totpEncryptionKey,
+    settingsEncryptionKey,
     portalBaseUrl: portalBaseUrl.replace(/\/$/, ""),
     trustedNetworks,
     timeZone: "Asia/Bangkok",
