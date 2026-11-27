@@ -1,0 +1,23 @@
+# GDCC backup jobs for one host (ADR 0009). Copy to /etc/gdcc-backup/jobs.toml.
+# Job names must match the Backup Jobs created on the Portal Backup page.
+# This example is for the Portal Application Server; see README.md for the
+# Wazuh VM and TLS Log Relay job lists.
+
+[retention]
+keep_daily = 35
+keep_weekly = 12
+keep_monthly = 12
+# Share of repository data that `prune` reads back and verifies each run.
+check_subset = "5%"
+
+[[jobs]]
+name = "portal-mariadb-daily"
+# Consistent dump; credentials come from the option file, never the command line.
+pre = [["/opt/gdcc-backup/dump-portal-db.sh", "/etc/gdcc-backup/portal-dump.cnf", "/var/backups/portal-db"]]
+paths = ["/var/backups/portal-db"]
+
+[[jobs]]
+name = "portal-config-daily"
+# Application files and non-secret configuration. Secrets stay in the Secrets Vault.
+paths = ["/opt/portal"]
+exclude = ["/opt/portal/node_modules", "/opt/portal/.next/cache", "/opt/portal/.env"]

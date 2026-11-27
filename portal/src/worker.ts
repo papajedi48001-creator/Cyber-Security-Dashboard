@@ -1,10 +1,14 @@
 // Portal background worker: run beside the web process (`npm run worker`).
-// Polls Wazuh, opens incidents, watches source health and port exposure, and
-// sends notifications.
+// Polls Wazuh, opens incidents, watches source health and port exposure, sends
+// notifications, and (when configured) imports GDCC backup evidence and checks
+// each connection of the GDCC database replica (Portal, HOSxP).
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "./lib/db/client";
 import { PrismaIntakeStore } from "./lib/db/intake-store";
+import { replicaStatusReader } from "./lib/db/replica-store";
+import { processEvidenceInbox } from "./lib/backups/inbox";
+import { createReplicaMonitor } from "./lib/replica/service";
 import { getServices } from "./lib/server/context";
 import { silentSources } from "./lib/sources";
 import { createIndexerClient, httpsTransport } from "./lib/wazuh/client";
@@ -15,11 +19,21 @@ const NOTIFY_INTERVAL_MS = 30_000;
 const SOURCE_HEALTH_INTERVAL_MS = 60_000;
 const PORT_INTERVAL_MS = 5 * 60_000;
 const WAF_INTERVAL_MS = 15 * 60_000;
+const BACKUP_INBOX_INTERVAL_MS = 5 * 60_000;
+const REPLICA_INTERVAL_MS = 5 * 60_000;
 
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports, waf } = getServices();
+const { config, audit, incidents, notifier, ports, waf, backups, replicas } = getServices();
+const inbox = config.backupEvidenceInbox;
+const readReplica = config.replicaMonitorUrl ? replicaStatusReader(config.replicaMonitorUrl) : null;
+const replicaMonitors = readReplica
+  ? replicas.map((target) => ({
+      source: target.source,
+      check: createReplicaMonitor({ target, fetchStatus: readReplica(target.connection), store: target.store }).check,
+    }))
+  : [];
 const source = createIndexerClient({
   baseUrl: config.wazuh.indexerUrl,
   username: config.wazuh.username,
@@ -35,6 +49,10 @@ const cycles = createWorkerCycles({
   silentSources: () => silentSources(prisma, config.wazuh.pollIntervalSeconds),
   portFindings: ports.findingsForIncidents,
   refreshWaf: waf.refresh,
+  importBackupInbox: inbox
+    ? (correlationId) => processEvidenceInbox(inbox, (csv, source) => backups.importSystemReport(csv, source, correlationId))
+    : undefined,
+  checkReplicas: replicaMonitors,
   log,
   newCorrelationId: randomUUID,
 });
@@ -58,6 +76,8 @@ every("source_health", SOURCE_HEALTH_INTERVAL_MS, cycles.sourceHealth);
 every("ports", PORT_INTERVAL_MS, cycles.ports);
 if (waf.configured) every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
+if (inbox) every("backup_inbox", BACKUP_INBOX_INTERVAL_MS, cycles.backupInbox);
+if (replicaMonitors.length) every("replica", REPLICA_INTERVAL_MS, cycles.replica);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {

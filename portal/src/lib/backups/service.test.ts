@@ -68,6 +68,25 @@ describe("backup evidence", () => {
     expect((await service.listBackupStatus(op))[0]).toMatchObject({ health: "failing", consecutiveFailures: 1 });
   });
 
+  it("imports a GDCC evidence file as the system, with an audited source", async () => {
+    const result = await service.importSystemReport(
+      [
+        "job,result,completed_at,size_bytes,encrypted,retention_until",
+        "hosxp-db-nightly,SUCCESS,2026-10-14T00:00:00Z,4000,yes,2026-11-18T00:00:00Z",
+        "not-registered,SUCCESS,2026-10-14T00:00:00Z,1,yes,",
+      ].join("\n"),
+      "portal-20261014T000000Z.csv",
+      "c",
+    );
+    expect(result).toMatchObject({ imported: 1, rejected: [{ line: 3 }] });
+    expect(store.evidence[0]).toMatchObject({ recordedById: "system:gdcc-backup", result: "SUCCESS" });
+    expect(audit.records.at(-1)).toMatchObject({
+      actorLabel: "system:gdcc-backup",
+      action: "backup.report_imported",
+      metadata: { source: "portal-20261014T000000Z.csv", imported: 1, rejected: 1 },
+    });
+  });
+
   it("gives executives counts only", async () => {
     await service.recordBackupEvidence(op, success, "c");
     expect(await service.backupSummary(exec)).toEqual({ jobs: 1, ok: 1, needsAttention: 0, recoveryVerified: 0 });

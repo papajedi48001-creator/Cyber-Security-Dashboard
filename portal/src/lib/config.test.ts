@@ -104,6 +104,33 @@ describe("loadConfig", () => {
     expectConfigError({ ...VALID_ENV, SMTP_HOST: "smtp", SMTP_FROM: "s@h", NOTIFY_EMAIL_TO: "a@h", SMTP_USER: "u" }, "SMTP_PASSWORD");
   });
 
+  it("enables the backup evidence inbox only with an absolute path", () => {
+    expect(loadConfig(VALID_ENV).backupEvidenceInbox).toBeUndefined();
+    expect(loadConfig({ ...VALID_ENV, BACKUP_EVIDENCE_INBOX: "/var/spool/portal/backup-evidence" }).backupEvidenceInbox).toBe(
+      "/var/spool/portal/backup-evidence",
+    );
+    expectConfigError({ ...VALID_ENV, BACKUP_EVIDENCE_INBOX: "relative/inbox" }, "BACKUP_EVIDENCE_INBOX");
+  });
+
+  it("enables replica monitoring only with a mysql URL and never echoes it", () => {
+    expect(loadConfig(VALID_ENV).replicaMonitorUrl).toBeUndefined();
+    const url = "mysql://portal-monitor:secret-monitor-password@198.51.100.40:3306/";
+    expect(loadConfig({ ...VALID_ENV, PORTAL_REPLICA_MONITOR_URL: url }).replicaMonitorUrl).toBe(url);
+    const error = expectConfigError({ ...VALID_ENV, PORTAL_REPLICA_MONITOR_URL: "https://secret-monitor-password@x" }, "PORTAL_REPLICA_MONITOR_URL");
+    expect(error.message).not.toContain("secret-monitor-password");
+  });
+
+  it("reads replica connection names for multi-source replication", () => {
+    const url = "mysql://portal-monitor:x@198.51.100.40:3306/";
+    expect(loadConfig(VALID_ENV).replicaConnections).toEqual({ portalConnection: "" });
+    expect(
+      loadConfig({ ...VALID_ENV, PORTAL_REPLICA_MONITOR_URL: url, PORTAL_REPLICA_CONNECTION: "portal", HOSXP_REPLICA_CONNECTION: "hosxp" })
+        .replicaConnections,
+    ).toEqual({ portalConnection: "portal", hosxpConnection: "hosxp" });
+    expectConfigError({ ...VALID_ENV, PORTAL_REPLICA_MONITOR_URL: url, HOSXP_REPLICA_CONNECTION: "hos xp;" }, "HOSXP_REPLICA_CONNECTION");
+    expectConfigError({ ...VALID_ENV, HOSXP_REPLICA_CONNECTION: "hosxp" }, "PORTAL_REPLICA_MONITOR_URL");
+  });
+
   it("configures the Cloudflare connector only with a valid zone", () => {
     expect(loadConfig(VALID_ENV).cloudflare).toBeUndefined();
     const zone = "0123456789abcdef0123456789abcdef";
