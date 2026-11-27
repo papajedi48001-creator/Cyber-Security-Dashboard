@@ -114,6 +114,8 @@ timeout 5 bash -c '</dev/tcp/<GDCC_VM_IP>/22' && echo 22 open || echo 22 closed
 ผิดปกติติดกัน 2 รอบ (10 นาที) worker เปิด incident P3 หมวด `replica_health` ให้อัตโนมัติ
 binary log บน primary เก็บ 7 วัน ถ้า replica ขาดนานกว่านั้นต้อง seed ใหม่ตามข้อ 3.6
 
+ไฟล์ backup รายวันของ HOSxP บน GDCC ดูได้ที่หน้า **ไฟล์ Backup GDCC** ของ Portal: ขนาด, checksum, วันที่ขาดไฟล์ และพื้นที่ดิสก์ (เกิน 75% ขอพื้นที่เพิ่มจาก GDCC, เกิน 85% ระบบลบไฟล์เก่าสุดเอง) การทำลายไฟล์ก่อนเวลาต้องผ่านคำขอ ผู้อนุมัติอีกคน และช่วงพักรอ 24 ชั่วโมง ดูการติดตั้งใน [gdcc-hosxp-files](../../infrastructure/gdcc-hosxp-files/README.md#หน้าไฟล์-backup-ใน-portal-adr-0011)
+
 ## 5. ซ้อมกู้คืน
 
 ทุก 90 วันต่องาน บนเครื่องชั่วคราวเท่านั้น ห้ามกู้ทับระบบจริง

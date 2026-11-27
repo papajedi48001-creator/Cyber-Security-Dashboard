@@ -1,0 +1,19 @@
+# /etc/systemd/system/portal-gdcc-files-sync.service — Portal server (ADR 0011)
+# Pushes held destroy requests to GDCC and fetches the backup files status.
+# The key in /etc/portal-gdcc-files/ belongs to the GDCC portal-ops account (SFTP chroot, no backups).
+[Unit]
+Description=Exchange HOSxP backup file status and requests with GDCC
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=portal
+Group=portal
+ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py sync \
+  --outbox /var/spool/portal/gdcc-requests \
+  --status-file /var/lib/portal/gdcc-files/status.json \
+  --destination portal-ops@GDCC_VM_ADDRESS \
+  --key /etc/portal-gdcc-files/portal-ops_ed25519
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/spool/portal/gdcc-requests /var/lib/portal/gdcc-files

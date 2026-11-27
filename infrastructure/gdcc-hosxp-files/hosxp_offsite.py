@@ -278,6 +278,8 @@ def _write_json_atomic(path, data, mode=0o640):
     with os.fdopen(fd, "w") as handle:
         json.dump(data, handle, indent=1, sort_keys=True)
     os.chmod(temp, mode)
+    if os.geteuid() == 0:
+        os.chown(temp, 0, path.parent.stat().st_gid)  # status/ is root:portal-ops, so the Portal account can read it
     os.replace(temp, str(path))
 
 

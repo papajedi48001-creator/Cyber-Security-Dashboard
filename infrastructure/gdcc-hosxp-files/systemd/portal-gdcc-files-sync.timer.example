@@ -1,0 +1,10 @@
+# /etc/systemd/system/portal-gdcc-files-sync.timer — Portal server (ADR 0011)
+[Unit]
+Description=Exchange HOSxP backup file status and requests with GDCC every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
