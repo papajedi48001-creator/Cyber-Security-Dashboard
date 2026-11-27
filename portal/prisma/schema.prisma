@@ -111,6 +111,17 @@ model ModuleSetting {
   updatedBy String   @db.VarChar(64)
 }
 
+// Connector settings (ADR 0011). secretEnc is AES-256-GCM with SETTINGS_ENCRYPTION_KEY.
+model ConnectorSetting {
+  name            String    @id @db.VarChar(64)
+  target          String    @db.VarChar(255)
+  username        String?   @db.VarChar(128)
+  secretEnc       String?   @db.Text
+  secretUpdatedAt DateTime?
+  updatedAt       DateTime
+  updatedBy       String    @db.VarChar(64)
+}
+
 model AlertReference {
   id               String   @id @default(cuid())
   wazuhAlertId     String   @unique @db.VarChar(128)

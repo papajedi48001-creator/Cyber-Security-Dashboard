@@ -15,5 +15,6 @@ $text = $text -replace 'MARIADB_ROOT_PASSWORD=CHANGE_ME', "MARIADB_ROOT_PASSWORD
 $text = $text -replace 'portal:CHANGE_ME@', "portal:$db@"
 $text = $text -replace 'SESSION_SECRET=.*', ("SESSION_SECRET=" + (New-Secret 48))
 $text = $text -replace 'TOTP_ENCRYPTION_KEY=.*', ("TOTP_ENCRYPTION_KEY=" + (New-Secret 32))
+$text = $text -replace 'SETTINGS_ENCRYPTION_KEY=.*', ("SETTINGS_ENCRYPTION_KEY=" + (New-Secret 32))
 [System.IO.File]::WriteAllText((Join-Path (Get-Location) ".env.docker"), $text)
 Write-Host "Created .env.docker with new secrets."

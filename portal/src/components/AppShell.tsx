@@ -10,6 +10,7 @@ const SETTINGS_NAV = [
   { href: "/settings/modules", label: "โมดูล" },
   { href: "/settings/users", label: "ผู้ใช้และสิทธิ์" },
   { href: "/settings/notifications", label: "การแจ้งเตือน" },
+  { href: "/settings/connectors", label: "การเชื่อมต่อ" },
   { href: "/settings/audit", label: "บันทึกการใช้งาน" },
 ];
 

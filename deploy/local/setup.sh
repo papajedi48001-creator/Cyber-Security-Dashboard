@@ -9,5 +9,6 @@ sed -e "s|MARIADB_PASSWORD=CHANGE_ME|MARIADB_PASSWORD=$db|" \
     -e "s|portal:CHANGE_ME@|portal:$db@|" \
     -e "s|^SESSION_SECRET=.*|SESSION_SECRET=$(openssl rand -base64 48 | tr -d '\n')|" \
     -e "s|^TOTP_ENCRYPTION_KEY=.*|TOTP_ENCRYPTION_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^SETTINGS_ENCRYPTION_KEY=.*|SETTINGS_ENCRYPTION_KEY=$(openssl rand -base64 32)|" \
     .env.docker.example > .env.docker
 echo "Created .env.docker with new secrets."

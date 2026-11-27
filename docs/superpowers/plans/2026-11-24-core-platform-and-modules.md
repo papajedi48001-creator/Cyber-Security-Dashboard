@@ -66,14 +66,14 @@
 
 **Files:** `portal/src/lib/settings/secrets.ts` (+ test), `portal/src/lib/settings/connectors.ts` (+ test), `portal/src/app/(app)/settings/connectors/page.tsx`.
 
-- [ ] Write failing tests:
+- [x] Write failing tests:
   - encryption round-trips;
   - decryption fails with the wrong key;
   - API serialisation never contains the secret, only `secretSet`;
   - a secret change writes an audit entry without the value;
   - the environment values are used once as the bootstrap when no record exists.
-- [ ] Implement, migrate the existing connectors (Wazuh Indexer, Cloudflare, scanner, GDCC reports) and add the connectors page with its test buttons.
-- [ ] Run the tests. Expect PASS. Commit.
+- [x] Implement, migrate the existing connectors (Wazuh Indexer, Cloudflare, scanner, GDCC reports) and add the connectors page with its test buttons.
+- [x] Run the tests. Expect PASS. Commit.
 
 ### Task 3: Provider ID and ThaID sign-in
 
@@ -93,12 +93,12 @@
 
 ### Task 4: Users, notifications and audit pages under System Settings
 
-- [ ] Write failing tests:
+- [x] Write failing tests:
   - adding a user requires a provider and a role;
   - only administrators reach `/settings/*` (otherwise 403);
   - the audit page is read-only.
-- [ ] Move `admin/users` to `settings/users`, keeping a redirect. Add the notifications page using the existing channels with a test-send, and the audit log page.
-- [ ] Run the tests. Expect PASS. Commit.
+- [x] Move `admin/users` to `settings/users`, keeping a redirect. Add the notifications page using the existing channels with a test-send, and the audit log page.
+- [x] Run the tests. Expect PASS. Commit.
 
 ### Task 5: Overview tiles from module summaries
 

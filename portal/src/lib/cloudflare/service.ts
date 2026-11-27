@@ -55,26 +55,31 @@ export function createWafService({
   audit,
   clock = () => new Date(),
 }: {
-  source: WafSource | null;
+  /** A function resolves the source per call, so connector settings changes apply without a restart. */
+  source: WafSource | null | (() => Promise<WafSource | null>);
   store: WafStore;
   audit: AuditLog;
   clock?: () => Date;
 }) {
+  const resolveSource = async () => (typeof source === "function" ? source() : source);
+
   async function summary(): Promise<SampledWafSummary> {
     const now = clock();
     const [snapshot, attempt] = await Promise.all([store.latest(), store.lastAttempt()]);
     const empty = { actions: [], topPaths: [], countries: [], sources: [], trend: [] };
-    if (!snapshot)
+    if (!snapshot) {
+      const configured = (await resolveSource()) !== null;
       return {
         sampled: true,
         status: "unavailable",
-        reason: source ? "ยังดึงข้อมูลจาก Cloudflare ไม่สำเร็จ จึงยังไม่ทราบจำนวนเหตุการณ์" : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ Cloudflare",
+        reason: configured ? "ยังดึงข้อมูลจาก Cloudflare ไม่สำเร็จ จึงยังไม่ทราบจำนวนเหตุการณ์" : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ Cloudflare",
         fetchedAt: null,
         range: null,
         lastError: attempt.error,
         total: null,
         ...empty,
       };
+    }
     const ageMinutes = Math.floor((now.getTime() - snapshot.fetchedAt.getTime()) / 60_000);
     // A successful fetch clears the error, so any recorded error means the latest attempt failed.
     const failedSince = Boolean(attempt.error);
@@ -103,15 +108,14 @@ export function createWafService({
   }
 
   return {
-    configured: source !== null,
-
     /** Worker: fetch the last 24 hours of sampled events. */
     async refresh(correlationId: string) {
-      if (!source) return { status: "unconfigured" as const };
+      const current = await resolveSource();
+      if (!current) return { status: "unconfigured" as const };
       const until = clock();
       const since = new Date(until.getTime() - WAF_WINDOW_HOURS * 3_600_000);
       try {
-        const fetched = await source.fetchSummary({ since, until });
+        const fetched = await current.fetchSummary({ since, until });
         await store.save({ fetchedAt: until, since, until, summary: fetched });
         await store.recordAttempt(until, null);
         return { status: "ok" as const, total: fetched.total };

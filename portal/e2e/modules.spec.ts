@@ -82,9 +82,28 @@ test.describe("System Settings pages", () => {
 
   test("only administrators reach System Settings", async ({ browser }) => {
     const page = await (await browser.newContext(asRole("opA"))).newPage();
-    for (const path of ["/settings/users", "/settings/audit", "/settings/notifications"]) {
+    for (const path of ["/settings/users", "/settings/audit", "/settings/notifications", "/settings/connectors"]) {
       await page.goto(path);
       await expect(page).toHaveURL(/\/forbidden$/);
     }
   });
+});
+
+test("a connector secret is write-only once saved", async ({ browser }) => {
+  const page = await (await browser.newContext(asRole("admin"))).newPage();
+  await page.goto("/settings/connectors");
+  const card = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Wazuh Indexer" }) });
+  await card.getByLabel("รหัสผ่าน").fill("e2e-synthetic-rotated-password");
+  await card.getByRole("button", { name: "บันทึก" }).click();
+  await expect(card.getByRole("status")).toHaveText("บันทึกแล้ว รหัสจะไม่แสดงอีก");
+
+  await page.reload();
+  const reloaded = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Wazuh Indexer" }) });
+  await expect(reloaded.getByLabel("รหัสผ่าน")).toHaveValue("");
+  await expect(reloaded.getByText(/ตั้งค่าแล้ว ·/)).toBeVisible();
+  expect(await page.content()).not.toContain("e2e-synthetic-rotated-password");
+
+  await page.goto("/settings/audit?group=connector.");
+  await expect(page.getByRole("cell", { name: "connector.settings_changed" }).first()).toBeVisible();
+  expect(await page.content()).not.toContain("e2e-synthetic-rotated-password");
 });

@@ -22,6 +22,9 @@ import { createEmailChannel, createLineChannel } from "../notifications/channels
 import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
 import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
 import { PrismaModuleSettingStore } from "../db/module-store";
+import { PrismaConnectorStore } from "../db/connector-store";
+import { createConnectorSettings, type ConnectorSettings } from "../settings/connectors";
+import { createSecretBox } from "../settings/secrets";
 import { createModuleSettingsService, type ModuleSettingsService } from "../modules/settings";
 
 export interface Services {
@@ -37,6 +40,7 @@ export interface Services {
   duo: DuoManualCheckService;
   modules: ModuleSettingsService;
   auditReader: AuditReader;
+  connectors: ConnectorSettings;
 }
 
 let services: Services | undefined;
@@ -55,6 +59,19 @@ export function getServices(): Services {
     channels,
     audit,
     portalBaseUrl: config.portalBaseUrl,
+  });
+  const connectors = createConnectorSettings({
+    store: new PrismaConnectorStore(prisma),
+    audit,
+    box: config.settingsEncryptionKey ? createSecretBox(config.settingsEncryptionKey) : null,
+    env: {
+      "wazuh-indexer": { target: config.wazuh.indexerUrl, username: config.wazuh.username, secret: config.wazuh.password },
+      ...(config.cloudflare ? { cloudflare: { target: config.cloudflare.zoneId, username: null, secret: config.cloudflare.apiToken } } : {}),
+    },
+    status: async (name) => {
+      const row = await prisma.connectorState.findUnique({ where: { name } });
+      return { lastSuccessAt: row?.lastSuccessAt ?? null, lastError: row?.lastError ?? null };
+    },
   });
   const ports = createPortMonitorService({ store: new PrismaPortStore(prisma), audit });
   services = {
@@ -77,13 +94,17 @@ export function getServices(): Services {
     backups: createBackupService({ store: new PrismaBackupStore(prisma), audit }),
     ports,
     waf: createWafService({
-      source: config.cloudflare ? createCloudflareClient(config.cloudflare) : null,
+      source: async () => {
+        const cf = await connectors.effective("cloudflare");
+        return cf?.secret ? createCloudflareClient({ apiToken: cf.secret, zoneId: cf.target }) : null;
+      },
       store: new PrismaWafStore(prisma),
       audit,
     }),
     duo: createDuoManualCheckService({ store: new PrismaDuoCheckStore(prisma), audit }),
     modules: createModuleSettingsService({ store: new PrismaModuleSettingStore(prisma), audit }),
     auditReader: createAuditReader(auditStore),
+    connectors,
   };
   return services;
 }

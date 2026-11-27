@@ -70,6 +70,7 @@ describe("loadConfig", () => {
 
   it("requires a 32-byte TOTP encryption key", () => {
     expectConfigError({ ...VALID_ENV, TOTP_ENCRYPTION_KEY: Buffer.alloc(16).toString("base64") }, "TOTP_ENCRYPTION_KEY");
+    expectConfigError({ ...VALID_ENV, SETTINGS_ENCRYPTION_KEY: Buffer.alloc(16).toString("base64") }, "SETTINGS_ENCRYPTION_KEY");
   });
 
   it("requires HTTPS for the Wazuh Indexer and the Portal", () => {
@@ -110,5 +111,12 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t", CLOUDFLARE_ZONE_ID: zone }).cloudflare).toEqual({ apiToken: "t", zoneId: zone });
     expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t" }, "CLOUDFLARE_ZONE_ID");
     expectConfigError({ ...VALID_ENV, CLOUDFLARE_API_TOKEN: "t", CLOUDFLARE_ZONE_ID: "example.com" }, "CLOUDFLARE_ZONE_ID");
+  });
+});
+
+describe("settings encryption key", () => {
+  it("is optional and parsed when set", () => {
+    expect(loadConfig(VALID_ENV).settingsEncryptionKey).toBeNull();
+    expect(loadConfig({ ...VALID_ENV, SETTINGS_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString("base64") }).settingsEncryptionKey?.length).toBe(32);
   });
 });
