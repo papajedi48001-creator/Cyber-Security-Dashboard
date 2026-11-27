@@ -1,0 +1,27 @@
+# Portal Application Server: /etc/systemd/system/gdcc-replica-tunnel.service
+# Outbound SSH from the hospital to the GDCC VM (ADR 0009). No inbound port opens at the hospital.
+#  -R  GDCC VM 127.0.0.1:13306 -> Portal MariaDB 127.0.0.1:3306 (replication, TLS inside)
+#  -L  Portal 127.0.0.1:3316   -> replica 127.0.0.1:3306        (Portal worker health check)
+[Unit]
+Description=SSH tunnel for the GDCC Portal database replica
+Wants=network-online.target
+After=network-online.target mariadb.service
+
+[Service]
+User=gdcc-tunnel
+Environment=AUTOSSH_GATETIME=0
+ExecStart=/usr/bin/autossh -M 0 -N \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes \
+  -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/gdcc-replica/known_hosts \
+  -i /etc/gdcc-replica/tunnel_ed25519 \
+  -R 127.0.0.1:13306:127.0.0.1:3306 \
+  -L 127.0.0.1:3316:127.0.0.1:3306 \
+  tunnel@gdcc-replica.hospital.example
+Restart=always
+RestartSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

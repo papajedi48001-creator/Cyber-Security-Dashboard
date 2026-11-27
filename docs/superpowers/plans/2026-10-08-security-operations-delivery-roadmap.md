@@ -10,5 +10,7 @@ This roadmap decomposes the approved design into independently reviewable implem
 | 4 | [Cloud Backup](./2026-11-10-cloud-backup.md) | Encrypted daily upload of HOSxP backup files and project systems to GDCC, capacity-based pruning, logs and the Portal cloud backup dashboard | Hospital completes the readiness record and approves the Backup Gateway, retention policy and installation; a restore from GDCC passes |
 | 5 | [Core Platform, Provider Sign-in and MariaDB Replica](./2026-11-24-core-platform-and-modules.md) | Waritchaphum Security Dashboard with a module registry, System Settings, Provider ID/ThaID sign-in with break-glass, and the read-only MariaDB Replica module | Hospital registers with both providers, confirms MFA and the permission matrix, and approves the Replica Reporter; UAT passes |
 
+| 4 | [GDCC Offsite Backup and Portal Database Replica](./2026-11-26-gdcc-offsite-backup-and-replica.md) | Encrypted restic backups to GDCC, automatic Backup Evidence import, read-only Portal MariaDB replica with health monitoring (ADR 0009) | Hospital approves GDCC network path, binary logging on the Portal MariaDB, and a passed restore drill |
+
 Deferred capabilities are separate changes requiring separate approval: AD/LDAP identity, Duo API connector after entitlement confirmation, EDR Adapter, Backup File Management, and Wazuh scale-out/high availability.
 

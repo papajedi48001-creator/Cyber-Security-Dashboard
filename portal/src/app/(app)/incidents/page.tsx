@@ -30,6 +30,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <h1>Incident</h1>
+      <p className="lead">Security Incident ที่ต้องมีผู้รับผิดชอบ และ Security Event จาก Wazuh ที่รอคัดกรอง</p>
       {params.error && <p className="error" role="alert">{params.error}</p>}
       {notifier.channelsConfigured.length === 0 && (
         <p className="card state-bad" role="alert">
@@ -50,7 +51,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
           </ul>
         </div>
       )}
-      <nav style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+      <nav className="tabs" aria-label="มุมมอง incident">
         {VIEWS.map((v) => (
           <Link key={v.value} href={`/incidents?view=${v.value}`} aria-current={v.value === view ? "page" : undefined}>
             {v.label}
@@ -130,7 +131,7 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
                 </td>
                 {writable && (
                   <td>
-                    <form action={promoteAlertAction} style={{ display: "flex", gap: 6 }}>
+                    <form action={promoteAlertAction} className="row-form">
                       <input type="hidden" name="csrf" value={session.csrfToken} />
                       <input type="hidden" name="alertId" value={e.wazuhAlertId} />
                       <select name="severity" defaultValue={suggestedSeverity(e.ruleLevel)} aria-label="ระดับ">

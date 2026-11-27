@@ -200,6 +200,14 @@ _Avoid_: บัญชีส่วนบุคคล, บัญชี admin ข�
 การสแกนพอร์ตของ public IP ของโรงพยาบาลจากภายนอกเครือข่ายตามรอบที่อนุมัติ เพื่อหา External Port Exposure (ADR 0007)
 _Avoid_: การสแกนเครือข่ายภายใน, การสแกน IP ที่ไม่ใช่ของโรงพยาบาล
 
+**Portal Database Replica**:
+สำเนา Portal MariaDB แบบอ่านอย่างเดียวบน VM ใน GDCC ที่ตามข้อมูลด้วย replication ต่อเนื่อง ใช้ลดข้อมูลสูญหายเมื่อ Portal Application Server เสียหาย ไม่สลับอัตโนมัติ และไม่ใช้แทน Backup (ADR 0009)
+_Avoid_: HA, Standby Portal, Backup
+
+**Backup Evidence Inbox**:
+ไดเรกทอรีบน Portal Application Server ที่รับไฟล์ผล backup (CSV) จากเครื่องต่างๆ ให้ worker นำเข้าเป็น Backup Evidence อัตโนมัติ
+_Avoid_: Backup File, ที่เก็บ backup
+
 **Approved Exposure**:
 รายการพอร์ตหรือบริการที่อนุญาตให้เข้าถึงจาก Internet โดยมีผู้รับผิดชอบ เหตุผล และวันหมดอายุ เมื่อหมดอายุต้องกลับมาทบทวน
 _Avoid_: Allowlist ถาวร

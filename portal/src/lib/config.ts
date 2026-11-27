@@ -23,6 +23,12 @@ export interface PortalConfig {
     line?: { accessToken: string; to: string };
   };
   cloudflare?: { apiToken: string; zoneId: string };
+  /** Directory where GDCC backup evidence CSV files arrive (ADR 0009). */
+  backupEvidenceInbox?: string;
+  /** mysql:// URL of the monitor-only account on the GDCC Portal database replica. */
+  replicaMonitorUrl?: string;
+  /** Replication connection names on the GDCC replica: "" is the unnamed default; HOSxP is monitored only when set (ADR 0010). */
+  replicaConnections: { portalConnection: string; hosxpConnection?: string };
 }
 
 /** Thrown at startup. Names the variables at fault and never includes their values. */
@@ -132,6 +138,21 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     cloudflare = { apiToken: cfToken, zoneId };
   }
 
+  const backupEvidenceInbox = env.BACKUP_EVIDENCE_INBOX?.trim() || undefined;
+  if (backupEvidenceInbox && !backupEvidenceInbox.startsWith("/")) fail("BACKUP_EVIDENCE_INBOX", "must be an absolute directory path");
+
+  const replicaMonitorUrl = env.PORTAL_REPLICA_MONITOR_URL?.trim() || undefined;
+  if (replicaMonitorUrl && !/^mysql:\/\//.test(replicaMonitorUrl))
+    fail("PORTAL_REPLICA_MONITOR_URL", "must be a mysql:// URL for the replica monitor account");
+  const connectionName = (name: string) => {
+    const value = env[name]?.trim();
+    if (value !== undefined && !/^[A-Za-z0-9_-]{0,64}$/.test(value)) fail(name, "must be a replication connection name (letters, digits, _ or -)");
+    return value;
+  };
+  const portalConnection = connectionName("PORTAL_REPLICA_CONNECTION") ?? "";
+  const hosxpConnection = connectionName("HOSXP_REPLICA_CONNECTION") || undefined;
+  if (hosxpConnection && !replicaMonitorUrl) fail("PORTAL_REPLICA_MONITOR_URL", "is required when HOSXP_REPLICA_CONNECTION is set");
+
   if (problems.length) throw new ConfigError(variables, problems);
 
   return {
@@ -152,5 +173,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     notifications: { email, line },
     cloudflare,
+    backupEvidenceInbox,
+    replicaMonitorUrl,
+    replicaConnections: hosxpConnection ? { portalConnection, hosxpConnection } : { portalConnection },
   };
 }

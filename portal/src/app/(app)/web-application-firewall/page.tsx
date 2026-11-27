@@ -48,20 +48,22 @@ export default async function WafPage() {
         <>
           <div className="card">
             <h2>เหตุการณ์ที่สุ่มได้ใน 24 ชั่วโมง: {s.total.toLocaleString("th-TH")}</h2>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80 }} aria-label="แนวโน้มรายชั่วโมง">
+            <div className="trend" role="img" aria-label="แนวโน้มรายชั่วโมง">
               {s.trend.map((t) => (
                 <div
                   key={t.hour}
                   title={`${formatBangkok(new Date(t.hour))}: ${t.count}`}
-                  style={{ flex: 1, height: `${(t.count / max) * 100}%`, background: "var(--accent)", minHeight: 1 }}
+                  style={{ height: `${(t.count / max) * 100}%` }}
                 />
               ))}
             </div>
           </div>
+          <div className="split">
           <Top title="การกระทำ (block / challenge)" rows={s.actions.map((a) => ({ label: a.action, count: a.count }))} />
           <Top title="Path ที่ถูกกระทำบ่อย" rows={s.topPaths.map((p) => ({ label: p.path, count: p.count }))} />
           <Top title="ประเทศต้นทาง" rows={s.countries.map((c) => ({ label: c.country, count: c.count }))} />
           <Top title="กลไกที่ตรวจจับ" rows={s.sources.map((c) => ({ label: c.source, count: c.count }))} />
+          </div>
         </>
       )}
     </>

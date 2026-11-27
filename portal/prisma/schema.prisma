@@ -383,3 +383,15 @@ model AuditRecord {
   @@index([at])
   @@index([targetType, targetId])
 }
+
+// Latest check of the GDCC Portal database replica (ADR 0009); one row per replica.
+model ReplicaCheck {
+  name                String   @id @db.VarChar(64)
+  state               String   @db.VarChar(16)
+  lagSeconds          Int?
+  ioRunning           Boolean
+  sqlRunning          Boolean
+  error               String?  @db.VarChar(255)
+  consecutiveFailures Int
+  checkedAt           DateTime
+}

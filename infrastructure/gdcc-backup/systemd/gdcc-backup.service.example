@@ -1,0 +1,18 @@
+# /etc/systemd/system/gdcc-backup.service
+[Unit]
+Description=Encrypted backup to GDCC (ADR 0009)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/gdcc-backup/gdcc-backup.env
+ExecStart=/usr/bin/python3 /opt/gdcc-backup/gdcc_backup.py backup --config /etc/gdcc-backup/jobs.toml --outbox /var/spool/gdcc-backup/outbox
+# Deliver evidence even when a job failed: a failure is the result the Portal must see.
+# On the Portal Application Server, set --outbox to the Portal inbox and remove this line.
+ExecStopPost=-/usr/bin/rsync --remove-source-files --exclude=.* -e "ssh -i /etc/gdcc-backup/evidence_ed25519 -o BatchMode=yes" /var/spool/gdcc-backup/outbox/ evidence@portal.hospital.example:
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true

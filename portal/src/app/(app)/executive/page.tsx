@@ -17,7 +17,7 @@ export default async function ExecutivePage() {
   return (
     <>
       <h1>รายงานผู้บริหาร</h1>
-      <p className="muted">
+      <p className="lead">
         ตั้งแต่ {formatBangkok(s.period.start)} ถึง {formatBangkok(s.period.end)}
       </p>
 
@@ -55,6 +55,7 @@ export default async function ExecutivePage() {
         </p>
       </div>
 
+      <div className="split">
       <div className="card">
         <h2>การเฝ้าระวัง</h2>
         <p>
@@ -101,6 +102,7 @@ export default async function ExecutivePage() {
           {s.duo.overdue ? <span className="state-bad"> · เลยกำหนดตรวจ</span> : <span className="state-ok"> · ตามรอบ</span>}
           {s.duo.issuesFound && <span className="state-warn"> · พบสิ่งที่ต้องติดตาม</span>}
         </p>
+      </div>
       </div>
     </>
   );

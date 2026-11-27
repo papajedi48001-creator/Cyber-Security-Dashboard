@@ -1,0 +1,10 @@
+# /etc/systemd/system/hosxp-offsite-store.timer
+[Unit]
+Description=Verify HOSxP backup uploads every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

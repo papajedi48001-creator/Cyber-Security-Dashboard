@@ -183,6 +183,9 @@ const CYCLE_MODULES: Record<string, ModuleId> = {
   source_health: "log-sources",
   ports: "port-exposure",
   cloudflare_waf: "cloud-waf",
+  backup_inbox: "cloud-backup",
+  // GDCC replica connection checks (ADR 0009, ADR 0010) are shown on the Backup page.
+  replica: "cloud-backup",
 };
 
 export function moduleForCycle(cycle: string): ModuleId | undefined {

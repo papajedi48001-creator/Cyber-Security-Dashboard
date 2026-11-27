@@ -20,6 +20,7 @@
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans-thai-looped": "5.3.0",
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
     "next": "15.5.27",

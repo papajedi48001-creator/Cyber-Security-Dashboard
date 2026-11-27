@@ -52,7 +52,7 @@ Cloudflare Free / Duo / GDCC Backup / External Scan ------+
 | External Exposure Scan | Scans hospital-owned public addresses from outside on an approved schedule | Scans nothing internal; reports summaries only |
 | Security Operations Portal | Owns operations workflow, incident records, audit evidence, cross-service summaries, notification delivery state, and executive reporting | Does not store a second raw-log repository |
 | Portal MariaDB | Stores Portal-only operational records | Is separate from HOSxP and Wazuh Indexer |
-| GDCC | Receives encrypted backup artifacts | Does not host production Portal or SIEM runtime in this phase |
+| GDCC | Receives encrypted backup artifacts and hosts a read-only Portal Database Replica (ADR 0009) | Does not run Portal or SIEM processes in this phase |
 
 ## Network and access controls
 

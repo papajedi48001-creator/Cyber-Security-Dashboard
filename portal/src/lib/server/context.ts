@@ -26,6 +26,8 @@ import { PrismaConnectorStore } from "../db/connector-store";
 import { createConnectorSettings, type ConnectorSettings } from "../settings/connectors";
 import { createSecretBox } from "../settings/secrets";
 import { createModuleSettingsService, type ModuleSettingsService } from "../modules/settings";
+import { PrismaReplicaStore } from "../db/replica-store";
+import { replicaTargets, type ReplicaStore, type ReplicaTarget } from "../replica/service";
 
 export interface Services {
   config: PortalConfig;
@@ -41,6 +43,8 @@ export interface Services {
   modules: ModuleSettingsService;
   auditReader: AuditReader;
   connectors: ConnectorSettings;
+  /** GDCC replica connections (Portal always, HOSxP when set): latest stored check, written by the worker. */
+  replicas: (ReplicaTarget & { connection: string; configured: boolean; store: ReplicaStore })[];
 }
 
 let services: Services | undefined;
@@ -105,6 +109,11 @@ export function getServices(): Services {
     modules: createModuleSettingsService({ store: new PrismaModuleSettingStore(prisma), audit }),
     auditReader: createAuditReader(auditStore),
     connectors,
+    replicas: replicaTargets(config.replicaConnections).map((target) => ({
+      ...target,
+      configured: Boolean(config.replicaMonitorUrl),
+      store: new PrismaReplicaStore(prisma, target.source),
+    })),
   };
   return services;
 }

@@ -1,0 +1,30 @@
+# /etc/systemd/system/hosxp-offsite-upload.service — HOSxP server (ADR 0010)
+# Runs as root because the NAS share root (mode 000 over NFS) is readable only
+# by root; the sandbox below keeps everything read-only except state and outbox.
+# gdcc-vm resolves through /etc/hosts and /etc/ssh/ssh_config.d/50-gdcc-vm.conf
+# (UserKnownHostsFile /etc/hosxp-offsite/known_hosts, StrictHostKeyChecking yes).
+[Unit]
+Description=Copy HOSxP daily backup files to GDCC
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py upload \
+  --source /mnt/mariadb-migration-ro/HOSxP_Backup_Daily \
+  --state /var/lib/hosxp-offsite/state.json \
+  --outbox /var/spool/hosxp-offsite/outbox \
+  --destination hosxp-upload@gdcc-vm \
+  --key /etc/hosxp-offsite/upload_ed25519
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hosxp-offsite /var/spool/hosxp-offsite
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH

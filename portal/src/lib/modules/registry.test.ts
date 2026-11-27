@@ -73,5 +73,7 @@ describe("module registry", () => {
     expect(moduleForCycle("source_health")).toBe("log-sources");
     expect(isModuleEnabled(moduleForCycle("ports")!, { "port-exposure": false })).toBe(false);
     expect(moduleForCycle("intake")).toBe("incidents");
+    expect(moduleForCycle("backup_inbox")).toBe("cloud-backup");
+    expect(moduleForCycle("replica")).toBe("cloud-backup");
   });
 });

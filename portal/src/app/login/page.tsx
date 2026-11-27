@@ -7,7 +7,7 @@ export default function LoginPage() {
     <main className="login">
       <div className="card">
         <h1>Waritchaphum Security Dashboard</h1>
-        <p className="muted">โรงพยาบาลวาริชภูมิ · ใช้ได้เฉพาะเครือข่ายบริหารจัดการหรือ VPN ที่มี MFA</p>
+        <p className="muted">โรงพยาบาลวาริชภูมิ ใช้ได้เฉพาะเครือข่ายบริหารจัดการหรือ VPN ที่มี MFA</p>
         <LoginForm />
       </div>
     </main>
