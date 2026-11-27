@@ -240,6 +240,8 @@ function NasSection({ nas }: { nas: NasView }) {
                 <p>ใช้ {nas.volume.usedPercent}% · ว่าง {gb(nas.volume.freeBytes)} จาก {gb(nas.volume.totalBytes)}</p>
               </>
             )}
+            {!nas.volume && <p className="state-warn">อ่านพื้นที่ว่างบน NAS ไม่ได้ในรอบล่าสุด</p>}
+            {nas.dryRun && <p className="state-warn">NAS อยู่ในช่วงทดลอง: รายการที่ลบเป็นแค่ไฟล์ที่จะลบ ยังไม่ได้ลบจริง</p>}
             {nas.days.length > 0 && (
               <>
                 <p className={missing ? "state-bad" : "muted"}>{missing ? `ขาด ${missing} วัน ในช่วงที่เก็บอยู่` : "ครบทุกวันในช่วงที่เก็บอยู่"}</p>
@@ -269,7 +271,7 @@ function NasSection({ nas }: { nas: NasView }) {
           </table>
           {nas.deletedFiles.length > 0 && (
             <p className="muted">
-              รอบล่าสุดลบไฟล์เก่า {nas.deletedFiles.length} ไฟล์: {nas.deletedFiles.slice(0, 10).map((f) => <code key={f}>{f}</code>).reduce<React.ReactNode[]>((acc, el, i) => (i ? [...acc, " ", el] : [el]), [])}
+              {nas.dryRun ? `รอบทดลอง (ยังไม่ลบจริง) จะลบ ${nas.deletedFiles.length} ไฟล์: ` : `รอบล่าสุดลบไฟล์เก่า ${nas.deletedFiles.length} ไฟล์: `}{nas.deletedFiles.slice(0, 10).map((f) => <code key={f}>{f}</code>).reduce<React.ReactNode[]>((acc, el, i) => (i ? [...acc, " ", el] : [el]), [])}
             </p>
           )}
         </div>

@@ -22,9 +22,11 @@ const schema = z.object({
   oldest_set_date: z.string().regex(DATE).nullable(),
   sets: z.array(z.object({ date: z.string().regex(DATE), zip_name: fileName, zip_bytes: bytes })).max(400),
   deleted_files: z.array(fileName).max(400),
-  free_bytes: bytes,
-  total_bytes: bytes.positive(),
+  free_bytes: bytes.nullable(),
+  total_bytes: bytes.positive().nullable(),
   last_run_ok: z.boolean(),
+  /** Trial runs list what would be deleted without deleting it. */
+  dry_run: z.boolean().optional(),
   error: z.string().max(300).nullable(),
 });
 
@@ -48,13 +50,14 @@ export interface NasView {
   sets: { date: string; zipName: string; zipBytes: number }[];
   days: { date: string; state: "present" | "missing" }[];
   deletedFiles: string[];
+  dryRun: boolean;
   volume: { totalBytes: number; freeBytes: number; usedPercent: number } | null;
   error: string | null;
 }
 
 export function evaluateNasStatus(status: NasStatus | null, now: Date): NasView {
   if (!status) {
-    return { state: "unavailable", generatedAt: null, keepCount: 0, completeSets: 0, belowKeep: false, sets: [], days: [], deletedFiles: [], volume: null, error: null };
+    return { state: "unavailable", generatedAt: null, keepCount: 0, completeSets: 0, belowKeep: false, sets: [], days: [], deletedFiles: [], dryRun: false, volume: null, error: null };
   }
   const stale = now.getTime() - status.generated_at.getTime() > NAS_STALE_HOURS * 3_600_000;
   const sets = [...status.sets].sort((a, b) => b.date.localeCompare(a.date)).map((s) => ({ date: s.date, zipName: s.zip_name, zipBytes: s.zip_bytes }));
@@ -77,11 +80,15 @@ export function evaluateNasStatus(status: NasStatus | null, now: Date): NasView 
     sets,
     days,
     deletedFiles: status.deleted_files,
-    volume: {
-      totalBytes: status.total_bytes,
-      freeBytes: status.free_bytes,
-      usedPercent: Math.round((1000 * (status.total_bytes - status.free_bytes)) / status.total_bytes) / 10,
-    },
+    dryRun: status.dry_run ?? false,
+    volume:
+      status.total_bytes !== null && status.free_bytes !== null
+        ? {
+            totalBytes: status.total_bytes,
+            freeBytes: status.free_bytes,
+            usedPercent: Math.round((1000 * (status.total_bytes - status.free_bytes)) / status.total_bytes) / 10,
+          }
+        : null,
     error: status.error,
   };
 }

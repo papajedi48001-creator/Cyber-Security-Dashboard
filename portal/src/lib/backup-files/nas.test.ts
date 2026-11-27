@@ -49,6 +49,19 @@ describe("NAS retention status", () => {
     expect(view({}, new Date(Date.parse("2026-11-26T22:10:00Z") + (NAS_STALE_HOURS + 1) * 3_600_000)).state).toBe("stale");
   });
 
+  it("shows an unknown disk size as unknown, not as empty or full", () => {
+    expect(view({ free_bytes: null, total_bytes: null })).toMatchObject({ state: "fresh", volume: null });
+  });
+
+  it("marks a trial run whose deletions did not happen", () => {
+    expect(view({ dry_run: true }).dryRun).toBe(true);
+    expect(view().dryRun).toBe(false);
+  });
+
+  it("accepts an empty NAS with no set dates", () => {
+    expect(view({ sets: [], complete_sets: 0, newest_set_date: null, oldest_set_date: null })).toMatchObject({ state: "fresh", days: [], belowKeep: true });
+  });
+
   it("reports a failed run with its reason", () => {
     expect(view({ last_run_ok: false, error: "share not mounted" })).toMatchObject({ state: "failed", error: "share not mounted" });
   });
