@@ -39,7 +39,7 @@ portal_monitor_state() {
   (cd "$PORTAL_DIR" && PORTAL_REPLICA_URL="mysql://portal-monitor:lab-only-monitor@127.0.0.1:$TUN_L/" npx tsx -e '
     import { createReplicaMonitor, InMemoryReplicaStore } from "./src/lib/replica/service";
     import { replicaStatusReader } from "./src/lib/db/replica-store";
-    createReplicaMonitor({ fetchStatus: replicaStatusReader(process.env.PORTAL_REPLICA_URL!), store: new InMemoryReplicaStore() })
+    createReplicaMonitor({ fetchStatus: replicaStatusReader(process.env.PORTAL_REPLICA_URL!)(""), store: new InMemoryReplicaStore() })
       .check().then(({ check }) => { console.log(check.state); process.exit(0); });
   ')
 }

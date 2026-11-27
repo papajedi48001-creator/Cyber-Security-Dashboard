@@ -25,6 +25,8 @@ export interface PortalConfig {
   backupEvidenceInbox?: string;
   /** mysql:// URL of the monitor-only account on the GDCC Portal database replica. */
   replicaMonitorUrl?: string;
+  /** Replication connection names on the GDCC replica: "" is the unnamed default; HOSxP is monitored only when set (ADR 0010). */
+  replicaConnections: { portalConnection: string; hosxpConnection?: string };
 }
 
 /** Thrown at startup. Names the variables at fault and never includes their values. */
@@ -136,6 +138,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const replicaMonitorUrl = env.PORTAL_REPLICA_MONITOR_URL?.trim() || undefined;
   if (replicaMonitorUrl && !/^mysql:\/\//.test(replicaMonitorUrl))
     fail("PORTAL_REPLICA_MONITOR_URL", "must be a mysql:// URL for the replica monitor account");
+  const connectionName = (name: string) => {
+    const value = env[name]?.trim();
+    if (value !== undefined && !/^[A-Za-z0-9_-]{0,64}$/.test(value)) fail(name, "must be a replication connection name (letters, digits, _ or -)");
+    return value;
+  };
+  const portalConnection = connectionName("PORTAL_REPLICA_CONNECTION") ?? "";
+  const hosxpConnection = connectionName("HOSXP_REPLICA_CONNECTION") || undefined;
+  if (hosxpConnection && !replicaMonitorUrl) fail("PORTAL_REPLICA_MONITOR_URL", "is required when HOSXP_REPLICA_CONNECTION is set");
 
   if (problems.length) throw new ConfigError(variables, problems);
 
@@ -158,5 +168,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     cloudflare,
     backupEvidenceInbox,
     replicaMonitorUrl,
+    replicaConnections: hosxpConnection ? { portalConnection, hosxpConnection } : { portalConnection },
   };
 }

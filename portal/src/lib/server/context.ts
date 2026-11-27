@@ -21,7 +21,7 @@ import { createEmailChannel, createLineChannel } from "../notifications/channels
 import { createNotifier, type NotificationChannel, type Notifier } from "../notifications/delivery";
 import { PrismaSessionStore, PrismaUserStore } from "../db/auth-stores";
 import { PrismaReplicaStore } from "../db/replica-store";
-import type { ReplicaStore } from "../replica/service";
+import { replicaTargets, type ReplicaStore, type ReplicaTarget } from "../replica/service";
 
 export interface Services {
   config: PortalConfig;
@@ -34,8 +34,8 @@ export interface Services {
   ports: PortMonitorService;
   waf: WafService;
   duo: DuoManualCheckService;
-  /** GDCC Portal database replica: latest stored check (written by the worker). */
-  replica: { configured: boolean; store: ReplicaStore };
+  /** GDCC replica connections (Portal always, HOSxP when set): latest stored check, written by the worker. */
+  replicas: (ReplicaTarget & { connection: string; configured: boolean; store: ReplicaStore })[];
 }
 
 let services: Services | undefined;
@@ -80,7 +80,11 @@ export function getServices(): Services {
       audit,
     }),
     duo: createDuoManualCheckService({ store: new PrismaDuoCheckStore(prisma), audit }),
-    replica: { configured: Boolean(config.replicaMonitorUrl), store: new PrismaReplicaStore(prisma) },
+    replicas: replicaTargets(config.replicaConnections).map((target) => ({
+      ...target,
+      configured: Boolean(config.replicaMonitorUrl),
+      store: new PrismaReplicaStore(prisma, target.source),
+    })),
   };
   return services;
 }

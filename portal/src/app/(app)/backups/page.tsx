@@ -31,10 +31,13 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
   const { error, notice } = await searchParams;
   const services = getServices();
   const statuses = await services.backups.listBackupStatus(session.user);
-  const replica = replicaView(
-    services.replica.configured ? await services.replica.store.latest() : null,
-    services.replica.configured,
-    new Date(),
+  const now = new Date();
+  const replicas = await Promise.all(
+    services.replicas.map(async (target) => ({
+      source: target.source,
+      subject: target.subject,
+      view: replicaView(target.configured ? await target.store.latest() : null, target.configured, now),
+    })),
   );
   const canRecord = can(session.user, "backup.record");
   const csrf = <input type="hidden" name="csrf" value={session.csrfToken} />;
@@ -85,20 +88,22 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
         </table>
       </div>
 
-      <div className="card" aria-labelledby="replica-heading">
-        <h2 id="replica-heading">Replica ฐานข้อมูล Portal ที่ GDCC</h2>
-        <p>
-          สถานะ: <strong className={REPLICA[replica.state].className}>{REPLICA[replica.state].text}</strong>
-          {replica.check && (
-            <span className="muted">
-              {" "}· ตรวจล่าสุด {formatBangkok(replica.check.checkedAt)}
-              {replica.check.lagSeconds !== null && ` · ล่าช้า ${replica.check.lagSeconds} วินาที (เกณฑ์ ${MAX_HEALTHY_LAG_SECONDS})`}
-            </span>
-          )}
-        </p>
-        {replica.reason && <p className="muted">{replica.reason}</p>}
-        <p className="muted">replica ช่วยลดข้อมูลที่สูญหาย แต่คัดลอกการลบหรือความเสียหายไปด้วยทันที จึงไม่ใช้แทน backup และไม่สลับระบบอัตโนมัติ</p>
-      </div>
+      {replicas.map(({ source, subject, view }) => (
+        <div key={source} className="card" aria-labelledby={`${source}-heading`}>
+          <h2 id={`${source}-heading`}>Replica {subject} ที่ GDCC</h2>
+          <p>
+            สถานะ: <strong className={REPLICA[view.state].className}>{REPLICA[view.state].text}</strong>
+            {view.check && (
+              <span className="muted">
+                {" "}· ตรวจล่าสุด {formatBangkok(view.check.checkedAt)}
+                {view.check.lagSeconds !== null && ` · ล่าช้า ${view.check.lagSeconds} วินาที (เกณฑ์ ${MAX_HEALTHY_LAG_SECONDS})`}
+              </span>
+            )}
+          </p>
+          {view.reason && <p className="muted">{view.reason}</p>}
+          <p className="muted">replica ช่วยลดข้อมูลที่สูญหาย แต่คัดลอกการลบหรือความเสียหายไปด้วยทันที จึงไม่ใช้แทน backup และไม่สลับระบบอัตโนมัติ</p>
+        </div>
+      ))}
 
       {canRecord && statuses.length > 0 && (
         <>

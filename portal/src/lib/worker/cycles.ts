@@ -18,11 +18,14 @@ export interface WorkerDeps {
   notifier: Pick<Notifier, "dispatchDue">;
   /** GDCC backup evidence inbox (optional, ADR 0009). */
   importBackupInbox?: (correlationId: string) => Promise<Record<string, unknown>>;
-  /** GDCC Portal database replica check (optional, ADR 0009). */
-  checkReplica?: () => Promise<{
-    check: { state: string; lagSeconds: number | null; consecutiveFailures: number };
-    finding: Parameters<IncidentService["raiseFindings"]>[1][number] | null;
-  }>;
+  /** GDCC replica checks, one per replication connection (optional, ADR 0009 and 0010). */
+  checkReplicas?: {
+    source: string;
+    check: () => Promise<{
+      check: { state: string; lagSeconds: number | null; consecutiveFailures: number };
+      finding: Parameters<IncidentService["raiseFindings"]>[1][number] | null;
+    }>;
+  }[];
   silentSources: () => Promise<SilentSource[]>;
   log: WorkerLog;
   newCorrelationId: () => string;
@@ -77,15 +80,20 @@ export function createWorkerCycles(deps: WorkerDeps) {
     }),
 
     replica: guarded("replica", async (correlationId) => {
-      if (!deps.checkReplica) return { status: "not_configured" };
-      const { check, finding } = await deps.checkReplica();
-      const raised = finding ? await deps.incidents.raiseFindings("system:replica-monitor", [finding], correlationId) : [];
-      return {
-        state: check.state,
-        lagSeconds: check.lagSeconds,
-        consecutiveFailures: check.consecutiveFailures,
-        incidentsRaised: raised.map((i) => i.number),
-      };
+      if (!deps.checkReplicas?.length) return { status: "not_configured" };
+      const replicas = [];
+      for (const target of deps.checkReplicas) {
+        const { check, finding } = await target.check();
+        const raised = finding ? await deps.incidents.raiseFindings("system:replica-monitor", [finding], correlationId) : [];
+        replicas.push({
+          source: target.source,
+          state: check.state,
+          lagSeconds: check.lagSeconds,
+          consecutiveFailures: check.consecutiveFailures,
+          incidentsRaised: raised.map((i) => i.number),
+        });
+      }
+      return { replicas };
     }),
   };
 }

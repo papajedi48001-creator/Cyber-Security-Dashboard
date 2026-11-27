@@ -1,5 +1,6 @@
-// Portal MariaDB replica on GDCC (ADR 0009). The replica protects Portal
-// records; it is not high availability. Unknown, unreachable or old checks are
+// Database replicas on GDCC: the Portal MariaDB (ADR 0009) and the HOSxP
+// database (ADR 0010), as connections of one multi-source replica. A replica
+// protects records; it is not high availability. Unknown, unreachable or old checks are
 // never shown as healthy.
 
 export type ReplicaState = "healthy" | "lagging" | "broken" | "unavailable";
@@ -32,6 +33,15 @@ function shorten(text: string): string {
 export function sanitizeReplicaError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   return shorten(raw.replace(/[a-z][a-z0-9+.-]*:\/\/\S*/gi, "<url>").replace(/\S+:\S+@\S+/g, "<credentials>")) || "ไม่ทราบสาเหตุ";
+}
+
+/**
+ * Picks one connection's row from SHOW ALL REPLICAS STATUS. The unnamed default
+ * connection has an empty name. A missing connection gives null, which
+ * evaluates as unavailable, never healthy.
+ */
+export function selectReplicaRow(rows: Record<string, unknown>[], connection: string): Record<string, unknown> | null {
+  return rows.find((row) => String(row.Connection_name ?? "") === connection) ?? null;
 }
 
 /** Evaluates one row of SHOW REPLICA STATUS; null means the server is not a replica. */
