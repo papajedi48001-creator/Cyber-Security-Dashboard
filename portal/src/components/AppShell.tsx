@@ -8,7 +8,9 @@ export const PRODUCT_NAME = "Waritchaphum Security Dashboard";
 /** System Settings pages, shown to Security Administrators only. */
 const SETTINGS_NAV = [
   { href: "/settings/modules", label: "โมดูล" },
-  { href: "/admin/users", label: "ผู้ใช้และสิทธิ์" },
+  { href: "/settings/users", label: "ผู้ใช้และสิทธิ์" },
+  { href: "/settings/notifications", label: "การแจ้งเตือน" },
+  { href: "/settings/audit", label: "บันทึกการใช้งาน" },
 ];
 
 export function AppShell({

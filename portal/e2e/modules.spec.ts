@@ -56,3 +56,35 @@ test("core modules cannot be switched off", async ({ browser }) => {
   await expect(row.getByText("เปิดเสมอ")).toBeVisible();
   await expect(row.getByRole("button")).toHaveCount(0);
 });
+
+test.describe("System Settings pages", () => {
+  test("users moved under System Settings and the old address redirects", async ({ browser }) => {
+    const page = await (await browser.newContext(asRole("admin"))).newPage();
+    await page.goto("/admin/users");
+    await expect(page).toHaveURL(/\/settings\/users$/);
+    await expect(page.getByRole("heading", { level: 1, name: "ผู้ใช้และสิทธิ์" })).toBeVisible();
+  });
+
+  test("the audit log lists records and offers no way to change them", async ({ browser }) => {
+    const page = await (await browser.newContext(asRole("admin"))).newPage();
+    await page.goto("/settings/audit?group=auth.");
+    await expect(page.getByRole("heading", { level: 1, name: "บันทึกการใช้งาน" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "auth.login_succeeded" }).first()).toBeVisible();
+    await expect(page.locator("main form[method='post'], main button:not([type='submit'])")).toHaveCount(0);
+  });
+
+  test("the notifications page shows the channels and a synthetic sample", async ({ browser }) => {
+    const page = await (await browser.newContext(asRole("admin"))).newPage();
+    await page.goto("/settings/notifications");
+    await expect(page.getByRole("heading", { level: 1, name: "การแจ้งเตือน" })).toBeVisible();
+    await expect(page.getByText("INC-2026-0001")).toBeVisible();
+  });
+
+  test("only administrators reach System Settings", async ({ browser }) => {
+    const page = await (await browser.newContext(asRole("opA"))).newPage();
+    for (const path of ["/settings/users", "/settings/audit", "/settings/notifications"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/forbidden$/);
+    }
+  });
+});

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAssetService, type AssetService } from "../assets/service";
 import { createAuditLog, type AuditLog } from "../audit";
+import { createAuditReader, type AuditReader } from "../audit-reader";
 import { createAuthService, type AuthService } from "../auth/service";
 import { loadConfig, type PortalConfig } from "../config";
 import { prisma } from "../db/client";
@@ -35,6 +36,7 @@ export interface Services {
   waf: WafService;
   duo: DuoManualCheckService;
   modules: ModuleSettingsService;
+  auditReader: AuditReader;
 }
 
 let services: Services | undefined;
@@ -43,7 +45,8 @@ let services: Services | undefined;
 export function getServices(): Services {
   if (services) return services;
   const config = loadConfig();
-  const audit = createAuditLog(new PrismaAuditStore(prisma));
+  const auditStore = new PrismaAuditStore(prisma);
+  const audit = createAuditLog(auditStore);
   const channels: NotificationChannel[] = [];
   if (config.notifications.email) channels.push(createEmailChannel(config.notifications.email));
   if (config.notifications.line) channels.push(createLineChannel(config.notifications.line));
@@ -80,6 +83,7 @@ export function getServices(): Services {
     }),
     duo: createDuoManualCheckService({ store: new PrismaDuoCheckStore(prisma), audit }),
     modules: createModuleSettingsService({ store: new PrismaModuleSettingStore(prisma), audit }),
+    auditReader: createAuditReader(auditStore),
   };
   return services;
 }

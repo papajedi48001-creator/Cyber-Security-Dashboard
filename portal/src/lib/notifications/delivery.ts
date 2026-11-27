@@ -3,6 +3,7 @@
 // MAX_ATTEMPTS so they show as open failures in the Portal.
 
 import type { AuditLog } from "../audit";
+import { requirePermission, type Principal } from "../auth/authorize";
 import { notificationTime, DEFAULT_CALENDAR, type WorkingCalendar } from "../incidents/sla";
 import { buildNotificationSummary, renderNotificationText, type NotifiableIncident } from "./payload";
 
@@ -43,6 +44,7 @@ export interface DeliveryStore {
 }
 
 export const MAX_ATTEMPTS = 5;
+export const TEST_MESSAGE = "ข้อความทดสอบจาก Waritchaphum Security Dashboard ไม่ต้องดำเนินการใด ๆ";
 const BASE_BACKOFF_MS = 5 * 60_000;
 const MAX_BACKOFF_MS = 60 * 60_000;
 const MAX_ERROR_LENGTH = 200;
@@ -136,6 +138,27 @@ export function createNotifier({
 
     openFailures() {
       return store.openFailures();
+    },
+
+    /** System Settings test button: a fixed text with no incident data, audited. */
+    async sendTest(
+      actor: Principal & { username: string },
+      channelName: ChannelName,
+      correlationId: string,
+    ): Promise<{ ok: true } | { ok: false; error: string }> {
+      requirePermission(actor, "config.manage");
+      const channel = byName.get(channelName);
+      if (!channel) return { ok: false, error: `ช่องทาง ${channelName} ยังไม่ได้ตั้งค่า` };
+      const base = { actor: { id: actor.id, label: actor.username }, target: { type: "NotificationChannel", id: channelName }, correlationId };
+      try {
+        await channel.send(TEST_MESSAGE);
+        await audit.append({ ...base, action: "notification.test_sent" });
+        return { ok: true };
+      } catch (error) {
+        const message = safeError(error);
+        await audit.append({ ...base, action: "notification.test_failed", metadata: { error: message } });
+        return { ok: false, error: message };
+      }
     },
   };
 }
