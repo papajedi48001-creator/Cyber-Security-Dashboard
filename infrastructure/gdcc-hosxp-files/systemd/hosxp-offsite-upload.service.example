@@ -15,7 +15,8 @@ ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py upload \
   --state /var/lib/hosxp-offsite/state.json \
   --outbox /var/spool/hosxp-offsite/outbox \
   --destination hosxp-upload@gdcc-vm \
-  --key /etc/hosxp-offsite/upload_ed25519
+  --key /etc/hosxp-offsite/upload_ed25519 \
+  --nas-status /mnt/mariadb-migration-ro/HOSxP_Backup_Daily/hosxp-nas-status.json
 Nice=10
 IOSchedulingClass=idle
 PrivateTmp=true

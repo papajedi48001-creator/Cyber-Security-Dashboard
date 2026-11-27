@@ -30,9 +30,10 @@ FAKE_SFTP = textwrap.dedent(
     if os.environ.get("FAKE_SFTP_FAIL"):
         sys.stderr.write("ssh: connect to host gdcc.example port 22: Connection timed out\\n")
         sys.exit(255)
+    batch = sys.stdin.read()
     with open(os.environ["FAKE_SFTP_LOG"], "a") as log:
-        log.write(" ".join(sys.argv[1:]) + "\\n")
-    for line in sys.stdin.read().splitlines():
+        log.write(" ".join(sys.argv[1:]) + "\\n" + batch)
+    for line in batch.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -179,6 +180,36 @@ class UploadTestCase(unittest.TestCase):
             f.unlink()
         self.assertEqual(self.run_upload(), 0)
         self.assertTrue((self.remote / "inbox" / "MySQL_backup_a_20261126000103.ZIP").exists())
+
+    def write_nas_status(self, text='{"schema": 1, "complete_sets": 15}'):
+        path = self.source / "hosxp-nas-status.json"
+        path.write_text(text)
+        return path
+
+    def test_sends_the_nas_status_file_even_when_no_zip_is_due(self):
+        status = self.write_nas_status()
+        self.assertEqual(self.run_upload(nas_status=status), 0)
+        sent = self.remote / "inbox" / "hosxp-nas-status.json"
+        self.assertEqual(sent.read_text(), status.read_text())
+        self.assertEqual(list((self.remote / "inbox").glob(".*")), [])
+        self.assertIn(".hosxp-nas-status.json.part", self.log.read_text())
+
+    def test_replaces_the_nas_status_file_sent_earlier(self):
+        self.write_nas_status('{"schema": 1, "complete_sets": 14}')
+        self.run_upload(nas_status=self.source / "hosxp-nas-status.json")
+        self.write_nas_status('{"schema": 1, "complete_sets": 15}')
+        self.run_upload(nas_status=self.source / "hosxp-nas-status.json")
+        self.assertIn('"complete_sets": 15', (self.remote / "inbox" / "hosxp-nas-status.json").read_text())
+
+    def test_does_not_send_a_nas_status_file_that_is_not_a_json_object(self):
+        status = self.write_nas_status("not json")
+        self.assertEqual(self.run_upload(nas_status=status), 1)
+        self.assertFalse((self.remote / "inbox" / "hosxp-nas-status.json").exists())
+
+    def test_a_missing_nas_status_file_is_reported_but_zip_upload_still_runs(self):
+        path = make_zip(self.source, "MySQL_backup_a_20261126000103.ZIP", 2048, 90)
+        self.assertEqual(self.run_upload(nas_status=self.source / "absent.json"), 1)
+        self.assertTrue((self.remote / "inbox" / path.name).exists())
 
     def test_error_detail_never_contains_the_destination(self):
         detail = ho.redact("ssh: connect to host gdcc.example port 22: timed out for hosxp-upload@gdcc.example", "hosxp-upload@gdcc.example")
