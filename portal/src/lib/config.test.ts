@@ -112,6 +112,19 @@ describe("loadConfig", () => {
     expectConfigError({ ...VALID_ENV, BACKUP_EVIDENCE_INBOX: "relative/inbox" }, "BACKUP_EVIDENCE_INBOX");
   });
 
+  it("reads GDCC backup files only from absolute paths, and needs the status for requests", () => {
+    expect(loadConfig(VALID_ENV).gdccFiles).toBeUndefined();
+    expect(loadConfig({ ...VALID_ENV, GDCC_FILES_STATUS_PATH: "/var/lib/portal/gdcc-files/status.json" }).gdccFiles).toEqual({
+      statusPath: "/var/lib/portal/gdcc-files/status.json",
+    });
+    expect(
+      loadConfig({ ...VALID_ENV, GDCC_FILES_STATUS_PATH: "/var/lib/portal/gdcc-files/status.json", GDCC_FILES_REQUESTS_OUTBOX: "/var/spool/portal/gdcc-requests" })
+        .gdccFiles,
+    ).toEqual({ statusPath: "/var/lib/portal/gdcc-files/status.json", requestsOutbox: "/var/spool/portal/gdcc-requests" });
+    expectConfigError({ ...VALID_ENV, GDCC_FILES_STATUS_PATH: "status.json" }, "GDCC_FILES_STATUS_PATH");
+    expectConfigError({ ...VALID_ENV, GDCC_FILES_REQUESTS_OUTBOX: "/var/spool/portal/gdcc-requests" }, "GDCC_FILES_STATUS_PATH");
+  });
+
   it("enables replica monitoring only with a mysql URL and never echoes it", () => {
     expect(loadConfig(VALID_ENV).replicaMonitorUrl).toBeUndefined();
     const url = "mysql://portal-monitor:secret-monitor-password@198.51.100.40:3306/";

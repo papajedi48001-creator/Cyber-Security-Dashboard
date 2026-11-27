@@ -376,3 +376,38 @@ model ReplicaCheck {
   consecutiveFailures Int
   checkedAt           DateTime
 }
+
+enum BackupFileRequestStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  CANCELLED
+  SENT
+  DESTROYED
+  FAILED
+}
+
+// Backup Lifecycle Request for one HOSxP backup file on GDCC (ADR 0011).
+// The Portal records the request, approval and Backup Deletion Hold; the GDCC
+// job carries it out and reports the outcome. No row here deletes anything.
+model BackupLifecycleRequest {
+  id              String                  @id @default(cuid())
+  fileName        String                  @db.VarChar(128)
+  sizeBytes       BigInt
+  reason          String                  @db.VarChar(500)
+  status          BackupFileRequestStatus @default(PROPOSED)
+  proposedById    String                  @db.VarChar(64)
+  proposedByLabel String                  @db.VarChar(64)
+  proposedAt      DateTime
+  decidedById     String?                 @db.VarChar(64)
+  decidedByLabel  String?                 @db.VarChar(64)
+  decidedAt       DateTime?
+  decisionNote    String?                 @db.VarChar(500)
+  holdUntil       DateTime?
+  sentAt          DateTime?
+  completedAt     DateTime?
+  outcome         String?                 @db.VarChar(32)
+
+  @@index([status])
+  @@index([fileName])
+}

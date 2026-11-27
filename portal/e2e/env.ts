@@ -10,6 +10,8 @@ export const E2E_ENV: Record<string, string> = {
   WAZUH_DASHBOARD_URL: "https://wazuh.e2e.example",
   WAZUH_INDEXER_USERNAME: "svc-portal",
   WAZUH_INDEXER_PASSWORD: "e2e-only",
+  GDCC_FILES_STATUS_PATH: `${process.cwd()}/e2e/.gdcc/status.json`,
+  GDCC_FILES_REQUESTS_OUTBOX: `${process.cwd()}/e2e/.gdcc/requests`,
 };
 
 export const E2E_PASSWORD = "e2e-Password-2026!";

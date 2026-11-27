@@ -1,13 +1,16 @@
 // Portal background worker: run beside the web process (`npm run worker`).
 // Polls Wazuh, opens incidents, watches source health and port exposure, sends
-// notifications, and (when configured) imports GDCC backup evidence and checks
-// each connection of the GDCC database replica (Portal, HOSxP).
+// notifications, and (when configured) imports GDCC backup evidence, checks
+// each connection of the GDCC database replica (Portal, HOSxP), and hands held
+// HOSxP backup file requests to GDCC.
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "./lib/db/client";
 import { PrismaIntakeStore } from "./lib/db/intake-store";
 import { replicaStatusReader } from "./lib/db/replica-store";
 import { processEvidenceInbox } from "./lib/backups/inbox";
+import { readFilesStatus, writeDestroyInstruction } from "./lib/backup-files/exchange";
+import { evaluateFilesStatus } from "./lib/backup-files/status";
 import { createReplicaMonitor } from "./lib/replica/service";
 import { getServices } from "./lib/server/context";
 import { silentSources } from "./lib/sources";
@@ -21,12 +24,14 @@ const PORT_INTERVAL_MS = 5 * 60_000;
 const WAF_INTERVAL_MS = 15 * 60_000;
 const BACKUP_INBOX_INTERVAL_MS = 5 * 60_000;
 const REPLICA_INTERVAL_MS = 5 * 60_000;
+const BACKUP_FILES_INTERVAL_MS = 5 * 60_000;
 
 const log = (event: string, detail: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...detail }));
 
-const { config, audit, incidents, notifier, ports, waf, backups, replicas } = getServices();
+const { config, audit, incidents, notifier, ports, waf, backups, backupFiles, replicas } = getServices();
 const inbox = config.backupEvidenceInbox;
+const gdccFiles = config.gdccFiles;
 const readReplica = config.replicaMonitorUrl ? replicaStatusReader(config.replicaMonitorUrl) : null;
 const replicaMonitors = readReplica
   ? replicas.map((target) => ({
@@ -51,6 +56,15 @@ const cycles = createWorkerCycles({
   refreshWaf: waf.refresh,
   importBackupInbox: inbox
     ? (correlationId) => processEvidenceInbox(inbox, (csv, source) => backups.importSystemReport(csv, source, correlationId))
+    : undefined,
+  syncBackupFiles: gdccFiles
+    ? async (correlationId) => {
+        const view = evaluateFilesStatus(await readFilesStatus(gdccFiles.statusPath), new Date());
+        const reconciled = await backupFiles.reconcile(view, correlationId);
+        const outbox = gdccFiles.requestsOutbox;
+        const exported = outbox ? await backupFiles.exportDue((instruction) => writeDestroyInstruction(outbox, instruction), correlationId) : { sent: 0 };
+        return { state: view.state, ...reconciled, ...exported };
+      }
     : undefined,
   checkReplicas: replicaMonitors,
   log,
@@ -78,6 +92,7 @@ if (waf.configured) every("cloudflare_waf", WAF_INTERVAL_MS, cycles.waf);
 every("notifications", NOTIFY_INTERVAL_MS, cycles.notifications);
 if (inbox) every("backup_inbox", BACKUP_INBOX_INTERVAL_MS, cycles.backupInbox);
 if (replicaMonitors.length) every("replica", REPLICA_INTERVAL_MS, cycles.replica);
+if (gdccFiles) every("backup_files", BACKUP_FILES_INTERVAL_MS, cycles.backupFiles);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {

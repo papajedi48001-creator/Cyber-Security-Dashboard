@@ -69,6 +69,15 @@ describe("worker cycles", () => {
     expect(logs[0]).toMatchObject({ event: "backup_inbox", detail: { files: 1, imported: 3 } });
   });
 
+  it("hands held destroy requests to GDCC and records outcomes when files are configured", async () => {
+    const off = deps();
+    await off.cycles.backupFiles();
+    expect(off.logs[0]).toMatchObject({ event: "backup_files", detail: { status: "not_configured" } });
+    const on = deps({ syncBackupFiles: async () => ({ state: "fresh", sent: 1, completed: 0, closed: 0 }) });
+    await on.cycles.backupFiles();
+    expect(on.logs[0]).toMatchObject({ event: "backup_files", detail: { state: "fresh", sent: 1 } });
+  });
+
   it("checks each replica and opens an incident for a finding", async () => {
     const finding = { category: "replica_health", sourceName: "hosxp-db-replica", severity: "P3" as const, title: "replica", detectedAt: new Date() };
     const raised: string[] = [];

@@ -1,13 +1,11 @@
 // Read-only Backup Evidence: the Portal records what the backup system reports
 // and separate restore tests. It never runs, restores or deletes backups
-// (spec "Backup and disaster recovery"); lifecycle requests stay disabled.
+// (spec "Backup and disaster recovery"). Backup File Management for the HOSxP
+// files on GDCC lives in ../backup-files (ADR 0011).
 
 import type { AuditLog } from "../audit";
 import { requirePermission, type Principal } from "../auth/authorize";
 import { evaluateBackupJob, type BackupEvidence, type BackupJob, type RestoreVerification } from "./status";
-
-/** Future Backup File Management (Phase 4) stays off until separately approved. */
-export const BACKUP_FEATURES = { lifecycleRequests: false } as const;
 
 export interface BackupStore {
   listJobs(): Promise<BackupJob[]>;
