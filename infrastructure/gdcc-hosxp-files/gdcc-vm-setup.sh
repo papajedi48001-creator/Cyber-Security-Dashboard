@@ -6,6 +6,7 @@
 #   /srv/secure/mysql            MariaDB data, bind-mounted at /var/lib/mysql
 #   /srv/secure/hosxp-backups    stored backup ZIPs (root only)
 #   /srv/secure/sftp/hosxp/inbox upload chroot of hosxp-upload (SFTP only)
+#   /srv/secure/ops              chroot of portal-ops (ADR 0011): status/ read-only, requests/ write
 set -euo pipefail
 [ -f /tmp/hosxp_offsite.py ] || { echo "ไม่พบ /tmp/hosxp_offsite.py" >&2; exit 1; }
 [ -n "${HOSXP_SECURE_SIZE:-}" ] || HOSXP_SECURE_SIZE=440G
@@ -48,6 +49,17 @@ touch /home/hosxp-upload/.ssh/authorized_keys
 chown hosxp-upload:hosxp-upload /home/hosxp-upload/.ssh/authorized_keys
 chmod 600 /home/hosxp-upload/.ssh/authorized_keys
 
+# Portal server account (ADR 0011): reads the status file, writes destroy requests, never sees the backups.
+id portal-ops >/dev/null 2>&1 || useradd -m -s /sbin/nologin portal-ops
+usermod -p '*' portal-ops
+install -d -m 755 -o root -g root /srv/secure/ops
+install -d -m 750 -o root -g portal-ops /srv/secure/ops/status
+install -d -m 700 -o portal-ops -g portal-ops /srv/secure/ops/requests
+install -d -m 700 -o portal-ops -g portal-ops /home/portal-ops/.ssh
+touch /home/portal-ops/.ssh/authorized_keys
+chown portal-ops:portal-ops /home/portal-ops/.ssh/authorized_keys
+chmod 600 /home/portal-ops/.ssh/authorized_keys
+
 semanage fcontext -a -t mysqld_db_t '/srv/secure/mysql(/.*)?' 2>/dev/null || semanage fcontext -m -t mysqld_db_t '/srv/secure/mysql(/.*)?'
 mkdir -p /var/lib/mysql
 mountpoint -q /var/lib/mysql || mount --bind /srv/secure/mysql /var/lib/mysql
@@ -78,6 +90,13 @@ Match User hosxp-upload
     AllowTcpForwarding no
     PermitTTY no
     X11Forwarding no
+# The Portal server's key may only read status/ and write requests/ (ADR 0011).
+Match User portal-ops
+    ForceCommand internal-sftp -u 077
+    ChrootDirectory /srv/secure/ops
+    AllowTcpForwarding no
+    PermitTTY no
+    X11Forwarding no
 EOF
 if ! sshd -t; then rm -f /etc/ssh/sshd_config.d/20-hosxp-upload.conf; echo "sshd config invalid; removed" >&2; exit 1; fi
 systemctl reload sshd
@@ -90,7 +109,7 @@ RequiresMountsFor=/srv/secure
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py store --inbox /srv/secure/sftp/hosxp/inbox --store /srv/secure/hosxp-backups --keep-min 2 --max-use-percent 85
+ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py store --inbox /srv/secure/sftp/hosxp/inbox --store /srv/secure/hosxp-backups --keep-min 2 --max-use-percent 85 --requests-dir /srv/secure/ops/requests --status /srv/secure/ops/status/status.json --history /srv/secure/hosxp-offsite-history.json
 Nice=10
 IOSchedulingClass=idle
 EOF
@@ -112,6 +131,6 @@ systemctl start hosxp-offsite-store.service
 echo; echo "===== ผลลัพธ์ ====="
 df -h /srv/secure /var/lib/mysql
 mariadb -E -e "SELECT @@lower_case_table_names AS lctn, @@character_set_server AS charset, @@read_only AS read_only"
-ls -ld /srv/secure/hosxp-backups /srv/secure/sftp/hosxp/inbox
+ls -ld /srv/secure/hosxp-backups /srv/secure/sftp/hosxp/inbox /srv/secure/ops/status /srv/secure/ops/requests
 journalctl -u hosxp-offsite-store.service -n 1 --no-pager -o cat
 systemctl is-active hosxp-offsite-store.timer

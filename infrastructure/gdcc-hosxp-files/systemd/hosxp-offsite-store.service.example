@@ -8,6 +8,9 @@ Type=oneshot
 ExecStart=/usr/bin/python3 /opt/hosxp-offsite/hosxp_offsite.py store \
   --inbox /srv/secure/sftp/hosxp/inbox \
   --store /srv/secure/hosxp-backups \
-  --keep-min 2 --max-use-percent 85
+  --keep-min 2 --max-use-percent 85 \
+  --requests-dir /srv/secure/ops/requests \
+  --status /srv/secure/ops/status/status.json \
+  --history /srv/secure/hosxp-offsite-history.json
 Nice=10
 IOSchedulingClass=idle

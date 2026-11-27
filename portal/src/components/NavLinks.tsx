@@ -10,7 +10,11 @@ export interface NavGroup {
 
 export function NavLinks({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
-  const current = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const hrefs = groups.flatMap((g) => g.items.map((i) => i.href));
+  const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // The longest matching link is current, so /backups/files does not also mark /backups.
+  const active = hrefs.filter(matches).sort((a, b) => b.length - a.length)[0];
+  const current = (href: string) => href === active;
   return (
     <nav aria-label="เมนูหลัก">
       {groups.map((group) => (

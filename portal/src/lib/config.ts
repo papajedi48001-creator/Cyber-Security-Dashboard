@@ -23,6 +23,8 @@ export interface PortalConfig {
   cloudflare?: { apiToken: string; zoneId: string };
   /** Directory where GDCC backup evidence CSV files arrive (ADR 0009). */
   backupEvidenceInbox?: string;
+  /** HOSxP backup files on GDCC (ADR 0011): status fetched by sync, and the outbox for held destroy requests (requests off without it). */
+  gdccFiles?: { statusPath: string; requestsOutbox?: string };
   /** mysql:// URL of the monitor-only account on the GDCC Portal database replica. */
   replicaMonitorUrl?: string;
   /** Replication connection names on the GDCC replica: "" is the unnamed default; HOSxP is monitored only when set (ADR 0010). */
@@ -135,6 +137,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const backupEvidenceInbox = env.BACKUP_EVIDENCE_INBOX?.trim() || undefined;
   if (backupEvidenceInbox && !backupEvidenceInbox.startsWith("/")) fail("BACKUP_EVIDENCE_INBOX", "must be an absolute directory path");
 
+  const gdccStatusPath = env.GDCC_FILES_STATUS_PATH?.trim() || undefined;
+  const gdccRequestsOutbox = env.GDCC_FILES_REQUESTS_OUTBOX?.trim() || undefined;
+  if (gdccStatusPath && !gdccStatusPath.startsWith("/")) fail("GDCC_FILES_STATUS_PATH", "must be an absolute file path");
+  if (gdccRequestsOutbox && !gdccRequestsOutbox.startsWith("/")) fail("GDCC_FILES_REQUESTS_OUTBOX", "must be an absolute directory path");
+  if (gdccRequestsOutbox && !gdccStatusPath) fail("GDCC_FILES_STATUS_PATH", "is required when GDCC_FILES_REQUESTS_OUTBOX is set");
+
   const replicaMonitorUrl = env.PORTAL_REPLICA_MONITOR_URL?.trim() || undefined;
   if (replicaMonitorUrl && !/^mysql:\/\//.test(replicaMonitorUrl))
     fail("PORTAL_REPLICA_MONITOR_URL", "must be a mysql:// URL for the replica monitor account");
@@ -167,6 +175,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     notifications: { email, line },
     cloudflare,
     backupEvidenceInbox,
+    gdccFiles: gdccStatusPath ? { statusPath: gdccStatusPath, ...(gdccRequestsOutbox ? { requestsOutbox: gdccRequestsOutbox } : {}) } : undefined,
     replicaMonitorUrl,
     replicaConnections: hosxpConnection ? { portalConnection, hosxpConnection } : { portalConnection },
   };

@@ -15,6 +15,7 @@ const NAV: { label: string; items: { href: string; label: string; permission: Pe
     label: "หลักฐาน",
     items: [
       { href: "/backups", label: "Backup", permission: "evidence.read" },
+      { href: "/backups/files", label: "ไฟล์ Backup HOSxP", permission: "evidence.read" },
       { href: "/port-monitor", label: "พอร์ต", permission: "evidence.read" },
       { href: "/web-application-firewall", label: "WAF", permission: "evidence.read" },
       { href: "/duo", label: "Duo", permission: "evidence.read" },

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createAuditLog, InMemoryAuditStore } from "../audit";
 import { ForbiddenError } from "../auth/authorize";
-import { BackupValidationError, BACKUP_FEATURES, createBackupService, InMemoryBackupStore } from "./service";
+import { BackupValidationError, createBackupService, InMemoryBackupStore } from "./service";
 
 const NOW = new Date("2026-10-14T03:00:00Z");
 const admin = { id: "admin", username: "admin", role: "SECURITY_ADMINISTRATOR" as const };
@@ -99,6 +99,5 @@ describe("backup evidence", () => {
       ForbiddenError,
     );
     expect(Object.keys(service).filter((k) => /restore(?!Verification)|delete|destroy|run/i.test(k))).toEqual([]);
-    expect(BACKUP_FEATURES.lifecycleRequests).toBe(false);
   });
 });

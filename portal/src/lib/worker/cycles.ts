@@ -18,6 +18,8 @@ export interface WorkerDeps {
   notifier: Pick<Notifier, "dispatchDue">;
   /** GDCC backup evidence inbox (optional, ADR 0009). */
   importBackupInbox?: (correlationId: string) => Promise<Record<string, unknown>>;
+  /** HOSxP backup files on GDCC: send held destroy requests, record outcomes (optional, ADR 0011). */
+  syncBackupFiles?: (correlationId: string) => Promise<Record<string, unknown>>;
   /** GDCC replica checks, one per replication connection (optional, ADR 0009 and 0010). */
   checkReplicas?: {
     source: string;
@@ -77,6 +79,11 @@ export function createWorkerCycles(deps: WorkerDeps) {
     backupInbox: guarded("backup_inbox", async (correlationId) => {
       if (!deps.importBackupInbox) return { status: "not_configured" };
       return deps.importBackupInbox(correlationId);
+    }),
+
+    backupFiles: guarded("backup_files", async (correlationId) => {
+      if (!deps.syncBackupFiles) return { status: "not_configured" };
+      return deps.syncBackupFiles(correlationId);
     }),
 
     replica: guarded("replica", async (correlationId) => {

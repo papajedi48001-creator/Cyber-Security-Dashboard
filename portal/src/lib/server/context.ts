@@ -7,6 +7,8 @@ import { prisma } from "../db/client";
 import { PrismaAssetStore } from "../db/asset-store";
 import { PrismaAuditStore } from "../db/audit-store";
 import { PrismaBackupStore } from "../db/backup-store";
+import { PrismaBackupFileRequestStore } from "../db/backup-file-store";
+import { createBackupFileService, type BackupFileService } from "../backup-files/service";
 import { createBackupService, type BackupService } from "../backups/service";
 import { PrismaDeliveryStore } from "../db/delivery-store";
 import { PrismaIncidentStore } from "../db/incident-store";
@@ -31,6 +33,8 @@ export interface Services {
   incidents: IncidentService;
   notifier: Notifier;
   backups: BackupService;
+  /** HOSxP backup files on GDCC (ADR 0011); requests are enabled only with a requests outbox. */
+  backupFiles: BackupFileService;
   ports: PortMonitorService;
   waf: WafService;
   duo: DuoManualCheckService;
@@ -73,6 +77,11 @@ export function getServices(): Services {
     }),
     notifier,
     backups: createBackupService({ store: new PrismaBackupStore(prisma), audit }),
+    backupFiles: createBackupFileService({
+      store: new PrismaBackupFileRequestStore(prisma),
+      audit,
+      enabled: Boolean(config.gdccFiles?.requestsOutbox),
+    }),
     ports,
     waf: createWafService({
       source: config.cloudflare ? createCloudflareClient(config.cloudflare) : null,

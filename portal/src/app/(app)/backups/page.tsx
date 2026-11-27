@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { can } from "@/lib/auth/authorize";
-import { BACKUP_FEATURES } from "@/lib/backups/service";
 import type { BackupHealth } from "@/lib/backups/status";
 import { MAX_HEALTHY_LAG_SECONDS, replicaView, type ReplicaViewState } from "@/lib/replica/status";
 import { formatBangkok } from "@/lib/format";
@@ -51,6 +51,7 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="state-ok" role="status">{notice}</p>}
+      <p><Link href="/backups/files">ดูไฟล์ backup HOSxP บน NAS และ GDCC</Link></p>
       <div className="card table-wrap">
         <table>
           <thead>
@@ -163,7 +164,7 @@ export default async function BackupsPage({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="card muted" style={{ marginTop: 16 }}>
-        การจัดการไฟล์ backup (ค้นหา, เก็บถาวร, ทำลาย) {BACKUP_FEATURES.lifecycleRequests ? "เปิดใช้" : "ยังไม่เปิดใช้ในระยะนี้"} ต้องผ่านคำขอ, การอนุมัติ และ Backup Deletion Hold
+        การทำลายไฟล์ backup HOSxP บน GDCC ทำได้เฉพาะผ่าน <Link href="/backups/files">คำขอจัดการไฟล์</Link> ที่มีผู้อนุมัติและช่วงพักรอ Backup Deletion Hold
       </div>
     </>
   );

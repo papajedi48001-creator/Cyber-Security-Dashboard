@@ -7,3 +7,12 @@ Match User hosxp-upload
     AllowTcpForwarding no
     PermitTTY no
     X11Forwarding no
+
+# The Portal server's key (ADR 0011) may only read status/ and write requests/ inside /srv/secure/ops.
+# /srv/secure/ops is root-owned; status/ is root:portal-ops 750; requests/ belongs to portal-ops.
+Match User portal-ops
+    ForceCommand internal-sftp -u 077
+    ChrootDirectory /srv/secure/ops
+    AllowTcpForwarding no
+    PermitTTY no
+    X11Forwarding no
